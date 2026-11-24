@@ -1,0 +1,9 @@
+body{background:#070e3a;color:#e6ebff;font-family:Rajdhani,system-ui,sans-serif;font-weight:500;font-size:16px}
+h1,h2,.ttl{font-family:Orbitron,Rajdhani,sans-serif;text-transform:uppercase;font-weight:900;letter-spacing:.04em}
+.bev{clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+.card{background:linear-gradient(160deg,#16288a,#0d1857);border:1px solid #b02bd6}
+.btn{background:#b02bd6;color:#fff;font-weight:700;text-transform:uppercase;padding:.5rem .9rem}
+input[type=range]{accent-color:#ff8a1f;width:100%}
+input[type=checkbox]{accent-color:#b02bd6;width:1.2rem;height:1.2rem}
+input[type=number],input[type=text],textarea{background:#070e3a;border:1px solid #b02bd6;padding:.4rem;width:100%;color:#fff}
+button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}

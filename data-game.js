@@ -14,7 +14,8 @@ const OP_REWARDS=[[800,0],[0,500],[800,0],[0,500],[800,0],[0,500],[800,0],[0,500
 const OP_SKILLS=[[8,8000],[16,9000],[24,10500],[30,14000]];
 // Battle Pass : Crédits, Crédits d'amél., Hypercrédits (Standard = double du F2P)
 const BP={f2p:{n:'Pass F2P',cr:40000,up:10000,hc:50},std:{n:'Pass Standard',cr:40000,up:10000,hc:50},plus:{n:'Pass Plus',cr:20000,up:10000,hc:50}};
-const DAILY_FARM=2000; // Crédits / jour (indicatif)
+const DAILY_CAP=2000; // Plafond de farm : Crédits de combat gagnés par jour
+const CR_PER_FIGHT=180; // Crédits moyens gagnés par combat normal (indicatif)
 // Simulateur : taux de victoire, trophées gagnés par match, minutes par match
 const SIM={win:0.7674,gain:9.27,min:3.41};
 const TROPHY_LEAGUE_REWARDS = [

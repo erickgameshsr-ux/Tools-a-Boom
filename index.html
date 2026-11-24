@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Tank a Boom Companion</title>
+<title>Tools A Boom</title>
+<link rel="icon" href="assets/icon.png">
+<link rel="apple-touch-icon" href="assets/icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
 <script>tailwind.config={theme:{extend:{colors:{night:'#070e3a',royal:'#13247a',mand:'#ff8a1f',mag:'#b02bd6'}}}}</script>
@@ -9,12 +11,13 @@
 </head>
 <body style="padding-bottom:6rem">
 <header class="px-3 pb-3 flex justify-between items-center bg-royal border-b-2 border-mag" style="padding-top:max(.75rem,env(safe-area-inset-top))">
-<h1 class="text-base">Tank a Boom <span class="text-mand">Companion</span></h1>
+<h1 class="text-base flex items-center gap-2"><img src="assets/icon.png" alt="" class="w-8 h-8">Tools <span class="text-mand">A Boom</span></h1>
 <button class="text-xs opacity-70" onclick="toggleIO()">⇅ Sauvegarde</button></header>
 <div id="io" class="hidden p-3 space-y-2 max-w-xl mx-auto"><textarea id="iot" rows="4" placeholder="Collez ici un code de sauvegarde à importer"></textarea>
 <div class="flex gap-2"><button class="btn bev" onclick="exp()">Exporter</button><button class="btn bev" onclick="imp()">Importer</button></div></div>
 <main id="app" class="p-3 max-w-xl mx-auto space-y-3"></main>
 <nav id="nav" class="fixed bottom-0 inset-x-0 grid grid-cols-4 bg-royal border-t-2 border-mag" style="padding-bottom:env(safe-area-inset-bottom)"></nav>
+<div id="modal"></div>
 <script src="data-game.js"></script>
 <script src="app.js"></script>
 </body></html>

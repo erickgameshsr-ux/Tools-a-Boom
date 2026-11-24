@@ -76,7 +76,7 @@ function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}
 
 /* ---- Trophées : saisie unique, synchronisée sur les deux onglets ---- */
 const trophyInputs=()=>`<div class="grid grid-cols-2 gap-2"><label class="text-xs">Trophées actuels<input data-lg="cur" type="number" min="0" value="${S.lg.cur}" oninput="lgIn('cur',this.value)"></label><label class="text-xs">Trophées visés<input data-lg="tgt" type="number" min="0" value="${S.lg.tgt}" oninput="lgIn('tgt',this.value)"></label></div>`;
-function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3();updSim()}
+function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
 
 /* ---- Onglet 3 : Récompenses ---- */
 function vEval(){
@@ -85,6 +85,9 @@ const dl=daysLeft();
 return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyInputs()}
 <label class="text-xs">Horizon de projection<select onchange="perIn(+this.value)">${per.map(([v,l])=>`<option value="${v}" ${S.per===v?'selected':''}>${l}</option>`).join('')}</select></label>
 <div id="lgr" class="text-sm space-y-1"></div></section>
+<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Rythme de jeu</h2><span class="text-[10px] px-2 py-1 bg-mand text-night font-bold uppercase">Estimation</span></div>
+${slider(30,S.act,'actIn(+this.value)')}<p class="text-xs opacity-70">Combats par jour</p><div id="rate" class="text-sm space-y-1"></div>
+<p class="text-xs opacity-70">Base : ${(SIM.win*100).toFixed(2).replace('.',',')} % de victoires, +${String(SIM.gain).replace('.',',')} trophées/match, ${String(SIM.min).replace('.',',')} min/combat.</p></section>
 <section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass · La Cour des Grands</h2>${Object.entries(BP).map(([k,b])=>`<div class="flex items-center gap-2 text-sm"><span class="flex-1">${b.n}<br><span class="text-xs opacity-70">${fmt(b.cr)} Cr · ${fmt(b.up)} Am. · ${b.hc} ⬡</span></span><label class="text-xs text-center">Acquis<br><input type="checkbox" ${S.bp[k]?'checked':''} onchange="bpIn('${k}',this.checked)"></label><label class="text-xs text-center">Récupéré<br><input type="checkbox" ${S.bpc[k]?'checked':''} onchange="bpClaim('${k}',this.checked)"></label></div>`).join('')}<div id="bpr" class="text-sm space-y-1"></div></section>
 <section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Saison en cours</h2><label class="text-xs">Fin de saison<input type="date" value="${S.season}" onchange="seasonIn(this.value)"></label>
 <div class="text-sm">${dl===null?'<span class="opacity-70">Date de fin non renseignée.</span>':dl>0?`<b class="text-mand">${dl} jour(s)</b> avant la réinitialisation`:'<b class="text-mag">Saison terminée : pensez à réinitialiser le Pass.</b>'}</div>
@@ -95,8 +98,9 @@ function bpIn(k,v){S.bp[k]=+v;if(!v)S.bpc[k]=0;go()}
 function bpClaim(k,v){S.bpc[k]=+v;go()}
 function seasonIn(v){S.season=v;go()}
 function bpReset(){if(confirm('Réinitialiser le Battle Pass ? Le Hangar et les opérateurs sont conservés.')){S.bp={f2p:1,std:0,plus:0};S.bpc={f2p:0,std:0,plus:0};go()}}
-function upd3(){const e=$('#net');if(!e)return;const c=calc(),d=days();
-$('#lgr').innerHTML=kv('Horizon',d?d+' jour(s)':toTarget()+' jour(s) (palier visé)')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+row(`Gains ligue (${c.p.n} paliers)`,c.p.v,1);
+function upd3(){const e=$('#net');if(!e)return;const c=calc(),d=days(),pd=perDay(),m=minDay();
+$('#rate').innerHTML=kv('Trophées / jour',fmt(pd))+kv('Trophées / semaine',fmt(pd*7))+kv('Trophées / mois',fmt(pd*30))+kv('Temps de jeu / jour',hm(m))+kv('Farm Crédits / jour',fmt(crDay())+(capHit()?' (plafond)':''));
+$('#lgr').innerHTML=kv('Horizon',d?d+' jour(s)':toTarget()+' jour(s) (palier visé)')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+kv('Paliers débloqués',c.p.n)+row(`Gains ligue (${c.p.n} paliers)`,c.p.v,1)+kv('Temps de jeu sur la période',hm(m*d));
 $('#bpr').innerHTML=row('Battle Pass restant (non récupéré)',c.bp,1)+`<div class="text-xs">+ ${c.bp[2]} ⬡ Hypercrédits restants</div>`;
 const fd=capHit()?`<p class="text-xs text-mand">⚠️ Quota journalier de ${fmt(DAILY_CAP)} Crédits atteint.</p>`:'';
 e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.og)+row('Gains ligue',c.p.v)+row('Gains Battle Pass',[c.bp[0],c.bp[1]])
@@ -104,21 +108,13 @@ e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.
 +kv('Farm estimé',c.farm?Math.ceil(c.farm/crDay())+' jour(s) plein(s)':'Aucun')
 +`<p class="text-xs opacity-70">Farm de ${fmt(crDay())} Cr/jour (${S.act} combats/jour).</p>${fd}`}
 
-/* ---- Onglet 4 : Trophées (rythme & projection) ---- */
-function vSim(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Trophées</h2>${trophyInputs()}</section>
-<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Rythme de jeu</h2><span class="text-[10px] px-2 py-1 bg-mand text-night font-bold uppercase">Estimation</span></div>
-${slider(30,S.act,'actIn(+this.value)')}<p class="text-xs opacity-70">Combats par jour</p><div id="rate" class="text-sm space-y-1"></div>
-<p class="text-xs opacity-70">Base : ${(SIM.win*100).toFixed(2).replace('.',',')} % de victoires, +${String(SIM.gain).replace('.',',')} trophées/match, ${String(SIM.min).replace('.',',')} min/combat.</p></section>
-<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Projection sur la période</h2><div id="proj" class="text-sm space-y-1"></div></section>`}
 function actIn(v){S.act=Math.max(1,v||1);go()}
-function updSim(){const r=$('#rate');if(!r)return;const pd=perDay(),m=minDay(),c=calc(),d=days();
-r.innerHTML=kv('Trophées / jour',fmt(pd))+kv('Trophées / semaine',fmt(pd*7))+kv('Trophées / mois',fmt(pd*30))+kv('Temps de jeu / jour',hm(m))+kv('Farm Crédits / jour',fmt(crDay())+(capHit()?' (plafond)':''));
-$('#proj').innerHTML=kv('Horizon',d+' jour(s)')+kv('Trophées gagnés',fmt(c.p.gain))+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Paliers débloqués',c.p.n)+row('Récompenses ligue',c.p.v)+kv('Temps de jeu sur la période',hm(m*d));}
 
 /* ---- Navigation, sauvegarde ---- */
-const TABS=[['🛡️','Hangar'],['🎖️','Opérateurs'],['🏆','Récompenses'],['⏱️','Trophées']];
-function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[10px] ${S.tab==i?'text-mand bg-night':'opacity-70'}"><div class="text-lg">${t[0]}</div>${t[1]}</button>`).join('');
-$('#app').innerHTML=[vHangar,vOps,vEval,vSim][S.tab]();[,,upd3,updSim][S.tab]?.();renderModal()}
+const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses']];
+function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[10px] ${S.tab==i?'text-mand bg-night':'opacity-70'}"><img src="${t[0]}" alt="" class="h-7 mx-auto object-contain"><div>${t[1]}</div></button>`).join('');
+if(S.tab>2)S.tab=0;
+$('#app').innerHTML=[vHangar,vOps,vEval][S.tab]();[,,upd3][S.tab]?.();renderModal()}
 const toggleIO=()=>$('#io').classList.toggle('hidden');
 async function exp(){const t=JSON.stringify(S);$('#iot').value=t;try{await navigator.clipboard.writeText(t);alert('Sauvegarde copiée.')}catch{$('#iot').select()}}
 function imp(){try{const o=JSON.parse($('#iot').value);if(!Array.isArray(o.chars))throw 0;S={...def(),...o};go();alert('Sauvegarde importée.')}catch{alert('Code invalide.')}}

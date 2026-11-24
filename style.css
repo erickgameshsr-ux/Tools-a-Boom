@@ -14,6 +14,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 #modal{display:none;position:fixed;inset:0;background:rgba(7,14,58,.88);z-index:50;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(1rem,env(safe-area-inset-top)) 1rem 1rem}
 #modal.open{display:flex}
 #modal>div{width:100%;max-width:36rem}
-.op-card{position:relative;overflow:hidden}
-.op-img{position:absolute;right:0;bottom:0;height:150px;pointer-events:none;z-index:0}
+.op-card{position:relative;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.op-img{position:absolute;right:0;bottom:0;height:150px;pointer-events:none;z-index:0;opacity:.4}
+.op-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(to right,rgba(15,23,55,.95) 45%,rgba(15,23,55,.55) 100%)}
 .op-card>*:not(.op-img){position:relative;z-index:1}

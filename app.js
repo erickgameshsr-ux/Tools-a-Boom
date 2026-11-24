@@ -9,7 +9,7 @@ let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
 let D={lvl:1,mods:[0,0,0,0,0],img:null};
-let UI={m:null};   // état d'affichage (fenêtre ouverte), non sauvegardé
+let UI={m:null,t:{h:false,o:false}};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
 const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
@@ -46,6 +46,24 @@ return{og,p,bp,need,gain,net,farm:Math.max(0,net[0])}}
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
 const closeM=()=>{UI.m=null;render()};
+/* ---- Tableaux de nivellement (dépliables) ---- */
+const toggleT=k=>{UI.t[k]=!UI.t[k];render()};
+const lvlTbl=(head,rows)=>`<div class="overflow-x-auto"><table class="lvl-tbl"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const pair=v=>`${fmt(v[0])} ${CR}`+(v[1]?` · ${fmt(v[1])} ${AM}`:'');
+const foldable=(k,title,html)=>`<button class="btn bev w-full" onclick="toggleT('${k}')">${UI.t[k]?'▲ Masquer le tableau':'▼ '+title}</button>${UI.t[k]?`<section class="card bev p-3 space-y-3">${html}</section>`:''}`;
+function tblChars(){
+const lv=LEVEL_COSTS.map((c,i)=>[`${i+1} → ${i+2}`,`${fmt(c[0])} ${CR}`,`${fmt(c[1])} ${AM}`,pair(sumP(LEVEL_COSTS.slice(i)))]);
+const md=MODS.map((m,i)=>[`Module ${i+1}`,`Niv. ${m[0]}`,`${fmt(m[1])} ${CR}`]);
+return `<h2 class="text-mand text-sm">Nivellement des chars</h2>${lvlTbl(['Niveau','Vers le suivant (Cr)','Vers le suivant (Am.)','Reste jusqu\'au niv. 20'],lv)}
+<h2 class="text-mand text-sm">Modules</h2>${lvlTbl(['Module','Niveau requis','Coût'],md)}`}
+function tblOps(){
+const lv=OP_MATCHES.map((m,i)=>[`${i+1} → ${i+2}`,fmt(m),pair(OP_REWARDS[i+1]||[0,0]),fmt(OP_MATCHES.slice(i).reduce((a,b)=>a+b,0))]);
+const sk=OP_SKILLS.map((a,i)=>[`A${i+1}`,`Niv. ${a[0]}`,`${fmt(a[1])} ${CR}`]);
+return `<h2 class="text-mand text-sm">Combats par niveau</h2>${lvlTbl(['Niveau','Matchs vers le suivant','Récompense au niveau suivant','Matchs restants → niv. 30'],lv)}
+<h2 class="text-mand text-sm">Aptitudes</h2>${lvlTbl(['Aptitude','Niveau requis','Coût'],sk)}`}
+function vHangar(){return vHangar0()+foldable('h','Tableau de nivellement',tblChars())}
+function vOps(){return vOps0()+foldable('o','Tableau de nivellement',tblOps())}
+
 function renderModal(){const m=$('#modal');
 if(!UI.m){m.className='';m.innerHTML='';m.onclick=null;return}
 let body;
@@ -56,7 +74,7 @@ let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=dow
 m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
-function vHangar(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant du hangar</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
+function vHangar0(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant du hangar</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
 <section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>`<button class="bubble${c.img?' has-img':''}" onclick="openM('c',${c.id})" style="${c.img?`background-image:url(${c.img});background-size:cover;background-position:center`:''}"><b>${esc(c.name)}</b><small>Niv. ${c.lvl}</small></button>`).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`}
 function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
 <button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
@@ -78,7 +96,7 @@ function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c
 
 /* ---- Onglet 2 : Opérateurs ---- */
 function opSum(){return owned().reduce((t,k)=>{const p=S.ops[k];return{g:add(t.g,sumP(OP_REWARDS.slice(p.lvl))),a:add(t.a,[skLeft(p),0])}},{g:Z,a:Z})}
-function vOps(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant des opérateurs</h2>${row('Aptitudes à acheter',o.a)}${row('Ressources à obtenir',o.g)}${netLine('Total restant',o.a[0]-o.g[0],CR)}<p class="text-xs opacity-70">(${fmt(o.a[0])} ${CR} à acheter − ${fmt(o.g[0])} ${CR} obtenus)</p></section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
+function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant des opérateurs</h2>${row('Aptitudes à acheter',o.a)}${row('Ressources à obtenir',o.g)}${netLine('Total restant',o.a[0]-o.g[0],CR)}<p class="text-xs opacity-70">(${fmt(o.a[0])} ${CR} à acheter − ${fmt(o.g[0])} ${CR} obtenus)</p></section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
 const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Ressources à obtenir',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes à acheter',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
 return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div></div>${body}</section>`}).join('')}
 function oOwn(k,v){S.ops[k].own=+v;go()}

@@ -26,3 +26,9 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .bubble.has-img{justify-content:flex-end;padding-bottom:9px;text-shadow:0 1px 3px #000,0 0 5px rgba(0,0,0,.9)}
 .bubble.has-img b{font-size:8px}
 .bubble.has-img small{font-size:8px}
+.bubble b{color:#fff;font-weight:700;text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.9)}
+.bubble small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.9)}
+.bubble:not(.has-img){padding-top:10px}
+.lvl-tbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
+.lvl-tbl th{color:#ff8a1f;text-align:left;padding:4px;font-family:Orbitron,Rajdhani,sans-serif;font-size:10px;font-weight:700}
+.lvl-tbl td{padding:4px;border-top:1px solid rgba(176,43,214,.4)}

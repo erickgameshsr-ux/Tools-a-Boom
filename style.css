@@ -14,8 +14,10 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 #modal{display:none;position:fixed;inset:0;background:rgba(7,14,58,.88);z-index:50;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(1rem,env(safe-area-inset-top)) 1rem 1rem}
 #modal.open{display:flex}
 #modal>div{width:100%;max-width:36rem}
-.op-card{position:relative;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.9)}
+.op-card{position:relative;overflow:hidden;color:#fff;text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.85)}
 .op-bg{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.op-bg img{position:absolute;right:0;bottom:0;height:150px;opacity:.4}
-.op-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(to right,rgba(15,23,55,.95) 45%,rgba(15,23,55,.75) 100%)}
+.op-bg img{position:absolute;right:0;bottom:0;height:150px}
 .op-card>*:not(.op-bg){position:relative;z-index:1}
+.op-card .opacity-40{opacity:.75;color:#e6ebff}
+.op-card input[type=checkbox]{outline:2px solid #fff;outline-offset:1px}
+.op-card b,.op-card span,.op-card label{font-weight:700}

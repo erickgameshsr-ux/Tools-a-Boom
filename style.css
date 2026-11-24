@@ -32,3 +32,13 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .lvl-tbl{width:100%;border-collapse:collapse;font-size:12px;white-space:nowrap}
 .lvl-tbl th{color:#ff8a1f;text-align:left;padding:4px;font-family:Orbitron,Rajdhani,sans-serif;font-size:10px;font-weight:700}
 .lvl-tbl td{padding:4px;border-top:1px solid rgba(176,43,214,.4)}
+.dual{position:relative;flex:1;height:28px}
+.dual-track{position:absolute;left:0;right:0;top:11px;height:6px;border-radius:4px;background:#2a2f63}
+.dual-fill{position:absolute;top:11px;height:6px;border-radius:4px;background:#ff8a1f;left:var(--a);width:calc(var(--b) - var(--a))}
+.dual input[type=range]{position:absolute;left:0;top:0;width:100%;height:28px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.dual input[type=range]::-webkit-slider-runnable-track{background:transparent;height:28px}
+.dual input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:18px;height:18px;border-radius:50%;background:#ff8a1f;border:2px solid #fff;margin-top:5px;cursor:pointer}
+.dual input[type=range]::-moz-range-track{background:transparent}
+.dual input[type=range]::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:#ff8a1f;border:2px solid #fff;cursor:pointer}
+.dual .db::-webkit-slider-thumb{background:#b02bd6}
+.dual .db::-moz-range-thumb{background:#b02bd6}

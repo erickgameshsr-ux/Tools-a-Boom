@@ -4,7 +4,7 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:10,per:30,season:'',bp:{f2p:1,std:0,plus:0},bpc:{f2p:0,std:0,plus:0}});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:10,per:30,season:'',bp:{f2p:1,std:0,plus:0},bpc:{f2p:0,std:0,plus:0}});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -22,9 +22,11 @@ const dBoxes=()=>boxes(MODS,D.lvl,D.mods,i=>`D.mods[${i}]=+this.checked`,'M');
 /* ---- Calculs de base ---- */
 function hangar(){let L=Z,M=Z;S.chars.forEach(c=>{L=add(L,sumP(LEVEL_COSTS.slice(c.lvl-1)));MODS.forEach((m,i)=>{if(!c.mods[i])M=add(M,[m[1],0])})});return{L,M,T:add(L,M)}}
 const owned=()=>Object.keys(OPS).filter(k=>S.ops[k].own);
-const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]?t:t+a[1],0);
+const tgtOf=p=>Math.max(p.tgt||30,p.lvl);
+const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
+function opRem(p){const l=p.lvl,t=tgtOf(p);if(l>=t)return{g:Z,a:Z,m:0};const cur=Math.max(0,OP_MATCHES[l-1]-(p.done||0));return{g:sumP(OP_REWARDS.slice(l,t)),a:[skLeft(p),0],m:cur+OP_MATCHES.slice(l,t-1).reduce((x,y)=>x+y,0)}}
 const opNeed=()=>[owned().reduce((t,k)=>t+skLeft(S.ops[k]),0),0];
-const opGain=()=>sumP(owned().map(k=>sumP(OP_REWARDS.slice(S.ops[k].lvl))));
+const opGain=()=>sumP(owned().map(k=>opRem(S.ops[k]).g));
 const bpRest=()=>{let v=[0,0,0];for(const k in BP)if(S.bp[k]&&!S.bpc[k])v=[v[0]+BP[k].cr,v[1]+BP[k].up,v[2]+BP[k].hc];return v};
 
 /* ---- Rythme de jeu & quota de farm ---- */
@@ -51,15 +53,20 @@ const toggleT=k=>{UI.t[k]=!UI.t[k];render()};
 const lvlTbl=(head,rows)=>`<div class="overflow-x-auto"><table class="lvl-tbl"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 const pair=v=>`${fmt(v[0])} ${CR}`+(v[1]?` · ${fmt(v[1])} ${AM}`:'');
 const foldable=(k,title,html)=>`<button class="btn bev w-full" onclick="toggleT('${k}')">${UI.t[k]?'▲ Masquer le tableau':'▼ '+title}</button>${UI.t[k]?`<section class="card bev p-3 space-y-3">${html}</section>`:''}`;
+const totRow=cells=>cells.map(c=>`<b class="text-mand">${c}</b>`);
 function tblChars(){
 const lv=LEVEL_COSTS.map((c,i)=>[`${i+1} → ${i+2}`,`${fmt(c[0])} ${CR}`,`${fmt(c[1])} ${AM}`,pair(sumP(LEVEL_COSTS.slice(i)))]);
+const tot=sumP(LEVEL_COSTS);lv.push(totRow(['Total',`${fmt(tot[0])} ${CR}`,`${fmt(tot[1])} ${AM}`,'—']));
 const md=MODS.map((m,i)=>[`Module ${i+1}`,`Niv. ${m[0]}`,`${fmt(m[1])} ${CR}`]);
-return `<h2 class="text-mand text-sm">Nivellement des chars</h2>${lvlTbl(['Niveau','Vers le suivant (Cr)','Vers le suivant (Am.)','Reste jusqu\'au niv. 20'],lv)}
+md.push(totRow(['Total','—',`${fmt(MODS.reduce((t,m)=>t+m[1],0))} ${CR}`]));
+return `<h2 class="text-mand text-sm">Nivellement des chars</h2>${lvlTbl(['Niveau',CR,AM,"Reste jusqu'au niv. 20"],lv)}
 <h2 class="text-mand text-sm">Modules</h2>${lvlTbl(['Module','Niveau requis','Coût'],md)}`}
 function tblOps(){
-const lv=OP_MATCHES.map((m,i)=>[`${i+1} → ${i+2}`,fmt(m),pair(OP_REWARDS[i+1]||[0,0]),fmt(OP_MATCHES.slice(i).reduce((a,b)=>a+b,0))]);
+const lv=OP_MATCHES.map((m,i)=>[`${i+1} → ${i+2}`,fmt(m),fmt(OP_MATCHES.slice(i).reduce((a,b)=>a+b,0)),pair(OP_REWARDS[i+1]||[0,0])]);
+const sumM=OP_MATCHES.reduce((a,b)=>a+b,0);lv.push(totRow(['Total',fmt(sumM),'—',pair(sumP(OP_REWARDS.slice(1,30)))]));
 const sk=OP_SKILLS.map((a,i)=>[`A${i+1}`,`Niv. ${a[0]}`,`${fmt(a[1])} ${CR}`]);
-return `<h2 class="text-mand text-sm">Combats par niveau</h2>${lvlTbl(['Niveau','Matchs vers le suivant','Récompense au niveau suivant','Matchs restants → niv. 30'],lv)}
+sk.push(totRow(['Total','—',`${fmt(OP_SKILLS.reduce((t,a)=>t+a[1],0))} ${CR}`]));
+return `<h2 class="text-mand text-sm">Combats par niveau</h2>${lvlTbl(['Niveau','Matchs','Matchs restants → niv. 30','Récompenses'],lv)}
 <h2 class="text-mand text-sm">Aptitudes</h2>${lvlTbl(['Aptitude','Niveau requis','Coût'],sk)}`}
 function vHangar(){return vHangar0()+foldable('h','Tableau de nivellement',tblChars())}
 function vOps(){return vOps0()+foldable('o','Tableau de nivellement',tblOps())}
@@ -86,21 +93,27 @@ function pickImg(cb){const i=document.createElement('input');i.type='file';i.acc
 i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
 const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2">${c.img?previewImg(c.img):''}<div class="flex justify-start">${c.img?`<button class="btn bev text-xs" onclick="byId(${c.id}).img=null;go()">Retirer</button>`:`<button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button>`}</div><div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+return `<section class="card bev p-3 space-y-2">${c.img?`<div class="relative">${previewImg(c.img)}<button class="absolute top-1 right-1 text-mag font-bold px-2" onclick="rmImg(${c.id})">✕</button></div>`:`<div class="flex justify-start"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
 function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;go()}
 function cLvl(id,v){const c=byId(id);c.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])c.mods[i]=0});go()}
 function cMod(id,i,v){byId(id).mods[i]=+v;go()}
+function rmImg(id){if(confirm('Supprimer cette image ?')){byId(id).img=null;go()}}
 function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
 
 /* ---- Onglet 2 : Opérateurs ---- */
-function opSum(){return owned().reduce((t,k)=>{const p=S.ops[k];return{g:add(t.g,sumP(OP_REWARDS.slice(p.lvl))),a:add(t.a,[skLeft(p),0])}},{g:Z,a:Z})}
-function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant des opérateurs</h2>${row('Aptitudes à acheter',o.a)}${row('Ressources à obtenir',o.g)}${netLine('Total restant',o.a[0]-o.g[0],CR)}<p class="text-xs opacity-70">(${fmt(o.a[0])} ${CR} à acheter − ${fmt(o.g[0])} ${CR} obtenus)</p></section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
-const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Ressources à obtenir',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes à acheter',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
+function opSum(){return owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0})}
+function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Aptitudes à acheter',o.a)}${row('Ressources à obtenir',o.g)}${kv('Matchs restants',fmt(o.m))}${netLine('Total restant',o.a[0]-o.g[0],CR)}<p class="text-xs opacity-70">(${fmt(o.a[0])} ${CR} à acheter − ${fmt(o.g[0])} ${CR} obtenus)</p></section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,t=tgtOf(p);
+const body=p.own?`${dualSlider(k,p.lvl,t)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. '+t+')',fmt(m))}${kvDone(k,p)}${row('Ressources à obtenir',r.g)}${row('Aptitudes à acheter',r.a)}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
 return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div></div>${body}</section>`}).join('')}
 function oOwn(k,v){S.ops[k].own=+v;go()}
-function oLvl(k,v){const p=S.ops[k];p.lvl=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
+function oLvl(k,v){const p=S.ops[k];if(v!==p.lvl)p.done=0;p.lvl=v;if(tgtOf(p)<v)p.tgt=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
+function oTgt(k,v){const p=S.ops[k];p.tgt=Math.max(v,p.lvl);go()}
+function opDone(k){const p=S.ops[k],max=OP_MATCHES[p.lvl-1];if(max==null)return;const v=prompt('Combats effectués sur le niveau '+p.lvl+' (sur '+max+') :',p.done||0);if(v===null)return;p.done=Math.min(max,Math.max(0,parseInt(v)||0));go()}
+const kvDone=(k,p)=>p.lvl>=30?kv('Combats effectués','Niveau max'):`<div class="flex justify-between items-center"><span>Combats effectués (niv. ${p.lvl})</span><span class="flex items-center gap-1"><b class="text-mand">${Math.min(p.done||0,OP_MATCHES[p.lvl-1])} / ${OP_MATCHES[p.lvl-1]}</b><button class="text-xs opacity-60 px-1" onclick="opDone('${k}')" aria-label="Modifier les combats effectués">✎</button></span></div>`;
+function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this,0)" onchange="oLvl('${k}',+this.value)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this,1)" onchange="oTgt('${k}',+this.value)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b></div>`}
+function dualIn(el,w){const d=el.closest('.dual');const a=d.querySelector('.da'),b=d.querySelector('.db');let x=+a.value,y=+b.value;if(w===0&&x>y){b.value=x;y=x}if(w===1&&y<x){a.value=y;x=y}d.style.setProperty('--a',(x-1)/29*100+'%');d.style.setProperty('--b',(y-1)/29*100+'%');d.parentNode.querySelector('.dv').textContent=x+' → '+y}
 function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}
 
 /* ---- Trophées : saisie unique, synchronisée sur les deux onglets ---- */
@@ -144,7 +157,15 @@ const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],
 function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[10px] ${S.tab==i?'text-mand bg-night':'opacity-70'}"><img src="${t[0]}" alt="" class="h-7 mx-auto object-contain"><div>${t[1]}</div></button>`).join('');
 if(S.tab>2)S.tab=0;
 $('#app').innerHTML=[vHangar,vOps,vEval][S.tab]();[,,upd3][S.tab]?.();renderModal()}
-const toggleIO=()=>$('#io').classList.toggle('hidden');
-async function exp(){const t=JSON.stringify(S);$('#iot').value=t;try{await navigator.clipboard.writeText(t);alert('Sauvegarde copiée.')}catch{$('#iot').select()}}
-function imp(){try{const o=JSON.parse($('#iot').value);if(!Array.isArray(o.chars))throw 0;S={...def(),...o};go();alert('Sauvegarde importée.')}catch{alert('Code invalide.')}}
+function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Rapide · texte (copier-coller)</h2><p class="text-xs opacity-70">Données uniquement, sans les images des chars.</p><textarea id="iot" rows="4" placeholder="Collez ici un code de sauvegarde à importer"></textarea><div class="flex gap-2"><button class="btn bev" onclick="exp()">Exporter</button><button class="btn bev" onclick="imp()">Importer</button></div></section>
+<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Complet · fichier ZIP</h2><p class="text-xs opacity-70">Inclut les images de personnalisation des chars.</p><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter .zip</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer .zip</button></div></section>`}
+const toggleIO=()=>{const e=$('#io');if(e.classList.contains('hidden'))e.innerHTML=ioHtml();e.classList.toggle('hidden')};
+async function exp(){const t=JSON.stringify({...S,chars:S.chars.map(({img,...r})=>r)});$('#iot').value=t;try{await navigator.clipboard.writeText(t);alert('Sauvegarde copiée.')}catch{$('#iot').select()}}
+function imp(){try{const o=JSON.parse($('#iot').value);if(!Array.isArray(o.chars))throw 0;o.chars=o.chars.map(c=>({...c,img:c.img||(S.chars.find(x=>x.id===c.id)||{}).img||null}));S={...def(),...o};go();alert('Sauvegarde importée.')}catch{alert('Code invalide.')}}
+function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function pickFile(acc,cb){const i=document.createElement('input');i.type='file';i.accept=acc;i.style.display='none';document.body.appendChild(i);i.onchange=()=>{const f=i.files[0];i.remove();if(f)cb(f)};i.click()}
+async function expZip(){try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}
+async function impZip(f){try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
+o.chars=await Promise.all(o.chars.map(async c=>{const{imgFile,...r}=c;if(imgFile&&z.file(imgFile)){return{...r,img:'data:image/jpeg;base64,'+await z.file(imgFile).async('base64')}}return{...r,img:r.img||null}}));
+S={...def(),...o};go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
 render();

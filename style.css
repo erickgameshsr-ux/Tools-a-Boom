@@ -21,3 +21,4 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .op-card .opacity-40{opacity:.75;color:#e6ebff}
 .op-card input[type=checkbox]{outline:2px solid #fff;outline-offset:1px}
 .op-card b,.op-card span,.op-card label{font-weight:700}
+.cur-ic{height:1em;width:auto;display:inline-block;vertical-align:-.15em}

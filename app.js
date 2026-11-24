@@ -1,5 +1,7 @@
 const KEY='tab_companion_v1';
 
+const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
+const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:10,per:30,season:'',bp:{f2p:1,std:0,plus:0},bpc:{f2p:0,std:0,plus:0}});
@@ -9,7 +11,7 @@ const go=()=>{save();render()};
 let D={lvl:1,mods:[0,0,0,0,0]};
 let UI={m:null};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
-const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' Cr');if(v[1])p.push(fmt(v[1])+' Am.');return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
+const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
 const netLine=(l,x,u)=>x>0?kv(l,fmt(x)+' '+u):`<div class="flex justify-between"><span>${l}</span><b class="text-emerald-400">Excédent de +${fmt(-x)} ${u}</b></div>`;
 const hm=m=>{const t=Math.round(m);return `${Math.floor(t/60)} h ${String(t%60).padStart(2,'0')} min`};
@@ -69,7 +71,7 @@ function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c
 /* ---- Onglet 2 : Opérateurs ---- */
 function vOps(){return Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
 const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Gains restants',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes restantes',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
-return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex justify-between items-center pr-20"><b class="ttl">${o.n}</b>${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ⬡)</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div>${body}</section>`}).join('')}
+return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex justify-between items-center pr-20"><b class="ttl">${o.n}</b>${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div>${body}</section>`}).join('')}
 function oOwn(k,v){S.ops[k].own=+v;go()}
 function oLvl(k,v){const p=S.ops[k];p.lvl=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
 function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}
@@ -88,7 +90,7 @@ return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Li
 <section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Rythme de jeu</h2><span class="text-[10px] px-2 py-1 bg-mand text-night font-bold uppercase">Estimation</span></div>
 ${slider(30,S.act,'actIn(+this.value)')}<p class="text-xs opacity-70">Combats par jour</p><div id="rate" class="text-sm space-y-1"></div>
 <p class="text-xs opacity-70">Base : ${(SIM.win*100).toFixed(2).replace('.',',')} % de victoires, +${String(SIM.gain).replace('.',',')} trophées/match, ${String(SIM.min).replace('.',',')} min/combat.</p></section>
-<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass · La Cour des Grands</h2>${Object.entries(BP).map(([k,b])=>`<div class="flex items-center gap-2 text-sm"><span class="flex-1">${b.n}<br><span class="text-xs opacity-70">${fmt(b.cr)} Cr · ${fmt(b.up)} Am. · ${b.hc} ⬡</span></span><label class="text-xs text-center">Acquis<br><input type="checkbox" ${S.bp[k]?'checked':''} onchange="bpIn('${k}',this.checked)"></label><label class="text-xs text-center">Récupéré<br><input type="checkbox" ${S.bpc[k]?'checked':''} onchange="bpClaim('${k}',this.checked)"></label></div>`).join('')}<div id="bpr" class="text-sm space-y-1"></div></section>
+<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass · La Cour des Grands</h2>${Object.entries(BP).map(([k,b])=>`<div class="flex items-center gap-2 text-sm"><span class="flex-1">${b.n}<br><span class="text-xs opacity-70">${fmt(b.cr)} ${CR} · ${fmt(b.up)} ${AM} · ${b.hc} ${HC}</span></span><label class="text-xs text-center">Acquis<br><input type="checkbox" ${S.bp[k]?'checked':''} onchange="bpIn('${k}',this.checked)"></label><label class="text-xs text-center">Récupéré<br><input type="checkbox" ${S.bpc[k]?'checked':''} onchange="bpClaim('${k}',this.checked)"></label></div>`).join('')}<div id="bpr" class="text-sm space-y-1"></div></section>
 <section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Saison en cours</h2><label class="text-xs">Fin de saison<input type="date" value="${S.season}" onchange="seasonIn(this.value)"></label>
 <div class="text-sm">${dl===null?'<span class="opacity-70">Date de fin non renseignée.</span>':dl>0?`<b class="text-mand">${dl} jour(s)</b> avant la réinitialisation`:'<b class="text-mag">Saison terminée : pensez à réinitialiser le Pass.</b>'}</div>
 <button class="btn bev w-full" onclick="bpReset()">Nouvelle saison / Reset Pass</button><p class="text-xs opacity-70">Le Hangar et les opérateurs sont conservés.</p></section>
@@ -101,12 +103,12 @@ function bpReset(){if(confirm('Réinitialiser le Battle Pass ? Le Hangar et les 
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),d=days(),pd=perDay(),m=minDay();
 $('#rate').innerHTML=kv('Trophées / jour',fmt(pd))+kv('Trophées / semaine',fmt(pd*7))+kv('Trophées / mois',fmt(pd*30))+kv('Temps de jeu / jour',hm(m))+kv('Farm Crédits / jour',fmt(crDay())+(capHit()?' (plafond)':''));
 $('#lgr').innerHTML=kv('Horizon',d?d+' jour(s)':toTarget()+' jour(s) (palier visé)')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+kv('Paliers débloqués',c.p.n)+row(`Gains ligue (${c.p.n} paliers)`,c.p.v,1)+kv('Temps de jeu sur la période',hm(m*d));
-$('#bpr').innerHTML=row('Battle Pass restant (non récupéré)',c.bp,1)+`<div class="text-xs">+ ${c.bp[2]} ⬡ Hypercrédits restants</div>`;
+$('#bpr').innerHTML=row('Battle Pass restant (non récupéré)',c.bp,1)+`<div class="text-xs">+ ${c.bp[2]} ${HC} Hypercrédits restants</div>`;
 const fd=capHit()?`<p class="text-xs text-mand">⚠️ Quota journalier de ${fmt(DAILY_CAP)} Crédits atteint.</p>`:'';
 e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.og)+row('Gains ligue',c.p.v)+row('Gains Battle Pass',[c.bp[0],c.bp[1]])
-+netLine('Reste net Crédits',c.net[0],'Cr')+netLine("Reste net Crédits d'amél.",c.net[1],'Am.')
++netLine('Reste net Crédits',c.net[0],CR)+netLine("Reste net Crédits d'amél.",c.net[1],AM)
 +kv('Farm estimé',c.farm?Math.ceil(c.farm/crDay())+' jour(s) plein(s)':'Aucun')
-+`<p class="text-xs opacity-70">Farm de ${fmt(crDay())} Cr/jour (${S.act} combats/jour).</p>${fd}`}
++`<p class="text-xs opacity-70">Farm de ${fmt(crDay())} ${CR}/jour (${S.act} combats/jour).</p>${fd}`}
 
 function actIn(v){S.act=Math.max(1,v||1);go()}
 

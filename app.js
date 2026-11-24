@@ -13,7 +13,7 @@ let UI={m:null};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
 const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
-const netLine=(l,x,u)=>x>0?kv(l,fmt(x)+' '+u):`<div class="flex justify-between"><span>${l}</span><b class="text-emerald-400">Excédent de +${fmt(-x)} ${u}</b></div>`;
+const netLine=(l,x,u)=>x>=0?kv(l,fmt(x)+' '+u):`<div class="flex justify-between"><span>${l}</span><b class="text-emerald-400">Excédent de +${fmt(-x)} ${u}</b></div>`;
 const hm=m=>{const t=Math.round(m);return `${Math.floor(t/60)} h ${String(t%60).padStart(2,'0')} min`};
 const slider=(max,v,cb)=>`<div class="flex items-center gap-2"><input type="range" min="1" max="${max}" value="${v}" oninput="this.nextElementSibling.textContent=this.value" onchange="${cb}"><b class="text-mand w-8 text-right">${v}</b></div>`;
 const boxes=(L,lvl,ck,cb,p)=>`<div class="grid gap-1" style="grid-template-columns:repeat(${L.length},1fr)">${L.map((m,i)=>{const d=lvl<m[0];return `<label class="text-center text-xs ${d?'opacity-40':''}"><input type="checkbox" ${ck[i]&&!d?'checked':''} ${d?'disabled':''} onchange="${cb(i)}"><br>${p}${i+1}<br>Niv. ${m[0]}</label>`}).join('')}</div>`;
@@ -52,21 +52,23 @@ let body;
 if(UI.m.t==='a')body=addForm();
 else{const c=byId(UI.m.id);if(!c){UI.m=null;m.className='';m.innerHTML='';return}body=charCard(c)}
 m.className='open';
-m.onclick=e=>{if(e.target===m)closeM()};
+let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=down&&e.target===m;down=false;if(ok)closeM()};
 m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
 function vHangar(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant du hangar</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
 <section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>`<button class="bubble" onclick="openM('c',${c.id})" style="${c.img?`background-image:url(${c.img});background-size:cover;background-position:center`:''}"><b>${esc(c.name)}</b><small>Niv. ${c.lvl}</small></button>`).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`}
 function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
-<label class="btn bev w-full text-center cursor-pointer block">Importer une image<input type="file" accept="image/*" class="hidden" onchange="importImg(this.files[0])"></label><div id="dimg">${D.img?`<img class="crop-16x10" src="${D.img}" alt="">`:''}</div></section>`}
-function importImg(f){if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=480,H=300,w=im.width,h=im.height;let sx=0,sy=0,sw=w,sh=h;
+<button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer une image</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
+function previewImg(d){return `<img class="crop-16x10" src="${d}" alt="">`}
+function toCrop(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=480,H=300,w=im.width,h=im.height;let sx=0,sy=0,sw=w,sh=h;
 if(w/h>1.6){sw=h*1.6;sx=(w-sw)/2}else{sh=w/1.6;sy=(h-sh)/2}
-const cv=document.createElement('canvas');cv.width=W;cv.height=H;cv.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,W,H);
-D.img=cv.toDataURL('image/jpeg',0.8);const e=$('#dimg');if(e)e.innerHTML=`<img class="crop-16x10" src="${D.img}" alt="">`};im.src=r.result};r.readAsDataURL(f)}
+const cv=document.createElement('canvas');cv.width=W;cv.height=H;cv.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,W,H);cb(cv.toDataURL('image/jpeg',0.8))};im.src=r.result};r.readAsDataURL(f)}
+function pickImg(cb){const i=document.createElement('input');i.type='file';i.accept='image/*';i.style.display='none';document.body.appendChild(i);
+i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
 const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2">${c.img?`<img class="crop-16x10" src="${c.img}" alt="">`:''}<div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+return `<section class="card bev p-3 space-y-2">${c.img?previewImg(c.img):''}<div class="flex gap-2 justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer une image</button>${c.img?`<button class="btn bev text-xs" onclick="byId(${c.id}).img=null;go()">Retirer l'image</button>`:''}</div><div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
 function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;go()}
@@ -76,7 +78,7 @@ function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c
 
 /* ---- Onglet 2 : Opérateurs ---- */
 function opSum(){return owned().reduce((t,k)=>{const p=S.ops[k];return{g:add(t.g,sumP(OP_REWARDS.slice(p.lvl))),a:add(t.a,[skLeft(p),0])}},{g:Z,a:Z})}
-function vOps(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant des opérateurs</h2>${row('Ressources à obtenir',o.g)}${row('Aptitudes à acheter',o.a)}${row('Total complet',add(o.g,o.a),1)}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
+function vOps(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant des opérateurs</h2>${row('Aptitudes à acheter',o.a)}${row('Ressources à obtenir',o.g)}${netLine('Total restant',o.a[0]-o.g[0],CR)}<p class="text-xs opacity-70">(${fmt(o.a[0])} ${CR} à acheter − ${fmt(o.g[0])} ${CR} obtenus)</p></section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
 const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Ressources à obtenir',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes à acheter',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
 return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div></div>${body}</section>`}).join('')}
 function oOwn(k,v){S.ops[k].own=+v;go()}

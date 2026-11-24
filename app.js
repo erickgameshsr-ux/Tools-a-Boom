@@ -8,7 +8,7 @@ const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
-let D={lvl:1,mods:[0,0,0,0,0]};
+let D={lvl:1,mods:[0,0,0,0,0],img:null};
 let UI={m:null};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
 const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
@@ -57,21 +57,28 @@ m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-
 
 /* ---- Onglet 1 : Mon Hangar ---- */
 function vHangar(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant du hangar</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
-<section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>`<button class="bubble" onclick="openM('c',${c.id})"><b>${esc(c.name)}</b><small>Niv. ${c.lvl}</small></button>`).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`}
-function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button></section>`}
+<section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>`<button class="bubble" onclick="openM('c',${c.id})" style="${c.img?`background-image:url(${c.img});background-size:cover;background-position:center`:''}"><b>${esc(c.name)}</b><small>Niv. ${c.lvl}</small></button>`).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`}
+function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
+<label class="btn bev w-full text-center cursor-pointer block">Importer une image<input type="file" accept="image/*" class="hidden" onchange="importImg(this.files[0])"></label><div id="dimg">${D.img?`<img class="crop-16x10" src="${D.img}" alt="">`:''}</div></section>`}
+function importImg(f){if(!f)return;const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=480,H=300,w=im.width,h=im.height;let sx=0,sy=0,sw=w,sh=h;
+if(w/h>1.6){sw=h*1.6;sx=(w-sw)/2}else{sh=w/1.6;sy=(h-sh)/2}
+const cv=document.createElement('canvas');cv.width=W;cv.height=H;cv.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,W,H);
+D.img=cv.toDataURL('image/jpeg',0.8);const e=$('#dimg');if(e)e.innerHTML=`<img class="crop-16x10" src="${D.img}" alt="">`};im.src=r.result};r.readAsDataURL(f)}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
-return `<section class="card bev p-3 space-y-2"><div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}</div></section>`}
+const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
+return `<section class="card bev p-3 space-y-2">${c.img?`<img class="crop-16x10" src="${c.img}" alt="">`:''}<div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
-function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods]});D={lvl:1,mods:[0,0,0,0,0]};UI.m=null;go()}
+function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;go()}
 function cLvl(id,v){const c=byId(id);c.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])c.mods[i]=0});go()}
 function cMod(id,i,v){byId(id).mods[i]=+v;go()}
 function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
 
 /* ---- Onglet 2 : Opérateurs ---- */
-function vOps(){return Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
-const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Gains restants',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes restantes',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
-return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex justify-between items-center pr-20"><b class="ttl">${o.n}</b>${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div>${body}</section>`}).join('')}
+function opSum(){return owned().reduce((t,k)=>{const p=S.ops[k];return{g:add(t.g,sumP(OP_REWARDS.slice(p.lvl))),a:add(t.a,[skLeft(p),0])}},{g:Z,a:Z})}
+function vOps(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant des opérateurs</h2>${row('Ressources à obtenir',o.g)}${row('Aptitudes à acheter',o.a)}${row('Total complet',add(o.g,o.a),1)}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
+const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Ressources à obtenir',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes à acheter',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
+return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div></div>${body}</section>`}).join('')}
 function oOwn(k,v){S.ops[k].own=+v;go()}
 function oLvl(k,v){const p=S.ops[k];p.lvl=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
 function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}

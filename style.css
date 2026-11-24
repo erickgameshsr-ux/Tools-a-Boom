@@ -11,7 +11,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .bubble b{font-family:Orbitron,Rajdhani,sans-serif;font-size:10px;text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bubble small{font-size:11px;color:#ff8a1f;font-weight:700}
 .bubble.add{font-size:38px;color:#ff8a1f;font-weight:700;line-height:1}
-#modal{display:none;position:fixed;inset:0;background:rgba(7,14,58,.88);z-index:50;align-items:flex-start;justify-content:center;overflow-y:auto;padding:max(1rem,env(safe-area-inset-top)) 1rem 1rem}
+#modal{display:none;position:fixed;inset:0;background:rgba(7,14,58,.88);z-index:50;align-items:center;justify-content:center;overflow-y:auto;padding:max(1rem,env(safe-area-inset-top)) 1rem 1rem}
 #modal.open{display:flex}
 #modal>div{width:100%;max-width:36rem}
 .op-card{position:relative;overflow:hidden;color:#fff;text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.85)}
@@ -22,3 +22,4 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .op-card input[type=checkbox]{outline:2px solid #fff;outline-offset:1px}
 .op-card b,.op-card span,.op-card label{font-weight:700}
 .cur-ic{height:1em;width:auto;display:inline-block;vertical-align:-.15em}
+.crop-16x10{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;margin:0}

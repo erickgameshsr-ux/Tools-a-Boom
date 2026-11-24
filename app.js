@@ -69,7 +69,7 @@ function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c
 /* ---- Onglet 2 : Opérateurs ---- */
 function vOps(){return Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],m=OP_MATCHES.slice(p.lvl-1).reduce((a,b)=>a+b,0);
 const body=p.own?`${slider(30,p.lvl,`oLvl('${k}',+this.value)`)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. 30)',fmt(m))}${row('Gains restants',sumP(OP_REWARDS.slice(p.lvl)))}${row('Aptitudes restantes',[skLeft(p),0])}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
-return `<section class="card bev op-card p-3 space-y-2"><img class="op-img" src="assets/${k}.png" alt="${o.n}" onerror="this.remove()"><div class="flex justify-between items-center pr-20"><b class="ttl">${o.n}</b>${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ⬡)</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div>${body}</section>`}).join('')}
+return `<section class="card bev op-card p-3 space-y-2"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex justify-between items-center pr-20"><b class="ttl">${o.n}</b>${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ⬡)</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div>${body}</section>`}).join('')}
 function oOwn(k,v){S.ops[k].own=+v;go()}
 function oLvl(k,v){const p=S.ops[k];p.lvl=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
 function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}

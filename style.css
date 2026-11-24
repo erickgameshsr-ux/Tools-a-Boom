@@ -15,6 +15,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 #modal.open{display:flex}
 #modal>div{width:100%;max-width:36rem}
 .op-card{position:relative;overflow:hidden;text-shadow:0 1px 4px rgba(0,0,0,.9)}
-.op-img{position:absolute;right:0;bottom:0;height:150px;pointer-events:none;z-index:0;opacity:.4}
-.op-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(to right,rgba(15,23,55,.95) 45%,rgba(15,23,55,.55) 100%)}
-.op-card>*:not(.op-img){position:relative;z-index:1}
+.op-bg{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.op-bg img{position:absolute;right:0;bottom:0;height:150px;opacity:.4}
+.op-card::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:linear-gradient(to right,rgba(15,23,55,.95) 45%,rgba(15,23,55,.75) 100%)}
+.op-card>*:not(.op-bg){position:relative;z-index:1}

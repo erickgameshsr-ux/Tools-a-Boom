@@ -64,7 +64,7 @@ const bp0=bpRest(),bf=bpFull(),rs=resetDays(Date.now());
 let D=null,k=0;
 for(let t=0;t<=MAXD;t++){
 while(k<rs.length&&rs[k]<=t)k++;
-if(b*t+opAt(t)[0]+lgA(t)[0]+bp0[0]+k*bf[0]>=need[0]){D=t;break}}
+if(b*t+opAt(t)[0]+lgA(t)[0]+bp0[0]+k*bf[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bp0[1]+k*bf[1]>=need[1]){D=t;break}}
 const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bp=[bp0[0]+k*bf[0],bp0[1]+k*bf[1]],farm=b*Dd,dT=daysToTarget();
 const bB=bpSum(r=>r[0]>S.bpl,0),fB=bpSum(()=>true,0),fT=bpSum(()=>true,S.bpr),rT=bpRest(),sb=(a,c)=>a.map((x,i)=>x-c[i]),v1r=sb(rT,bB),v1f=sb(fT,fB);
 const bpB=[bB[0]+k*fB[0],bB[1]+k*fB[1]],bpV1=[v1r[0]+k*v1f[0],v1r[1]+k*v1f[1]],bpV2=S.bpr===2?[k*BP_V2[0],k*BP_V2[1]]:[0,0];
@@ -177,7 +177,7 @@ function bpSlider(){return `<div class="flex items-center gap-2"><input type="ra
 function bpLvl(v){S.bpl=Math.max(0,Math.min(BP_MAX,v));go()}
 function bpStd(n,ck){S.bps=ck?n:0;go()}
 const rowBoth=(l,v,b)=>`<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${fmt(v[0])} ${CR} · ${fmt(v[1])} ${AM}</span></div>`;
-const bpLine=(l,v,b)=>row(l,[v[0],v[1]],b)+(v[2]?`<div class="flex justify-between ${b?'text-mand font-bold':''}"><span>${l}</span><span>${fmt(v[2])} ${HC}</span></div>`:'');
+const bpLine=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
 const L=$('#lgr');if(L)L.innerHTML=kv('Temps estimé',c.dT===null?'—':c.dT+' j')+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
 const cp=$('#crp');if(cp)cp.innerHTML=`<b class="text-mand">${fmt(crDay())} ${CR} / j</b>`;
@@ -187,7 +187,7 @@ $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} BP complété${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bpB)+((S.bps||S.bpr)?row('Battle Pass VIP niv1',c.bpV1):'')+(S.bpr===2&&c.k?row(`Battle Pass VIP niv2 (+${c.k} abonnement${pl})`,c.bpV2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bpB)+((c.bpV1[0]||c.bpV1[1])?row('Battle Pass VIP niv1',c.bpV1):'')+(S.bpr===2&&c.k?row(`Battle Pass VIP niv2 (+${c.k} abonnement${pl})`,c.bpV2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

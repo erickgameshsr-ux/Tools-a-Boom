@@ -4,7 +4,7 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,extra:SIM.extra,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -26,7 +26,6 @@ const tgtOf=p=>Math.max(p.tgt||30,p.lvl);
 const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
 function opRem(p){const l=p.lvl,t=tgtOf(p);if(l>=t)return{g:Z,a:Z,m:0};const cur=Math.max(0,OP_MATCHES[l-1]-(p.done||0));return{g:sumP(OP_REWARDS.slice(l,t)),a:[skLeft(p),0],m:cur+OP_MATCHES.slice(l,t-1).reduce((x,y)=>x+y,0)}}
 const opNeed=()=>[owned().reduce((t,k)=>t+skLeft(S.ops[k]),0),0];
-const opGain=()=>sumP(owned().map(k=>opRem(S.ops[k]).g));
 const bpSum=f=>BP_REWARDS.filter(f).reduce((t,r)=>{const m=S.bps&&r[4]?2:1;return[t[0]+r[1]*m,t[1]+r[2]*m,t[2]+r[3]*m]},[0,0,0]);
 const bpRest=()=>bpSum(r=>r[0]>S.bpl);
 const bpGot=()=>bpSum(r=>r[0]<=S.bpl);
@@ -36,21 +35,36 @@ const dec=(n,d)=>n.toFixed(d).replace('.',',');
 const gs=k=>S.stats[k]??SIM[k];
 const winR=()=>Math.min(100,Math.max(0,gs('win')))/100;
 const avgTr=()=>winR()*gs('tw')-(1-winR())*gs('tl');
-const matchMin=()=>gs('min')+gs('extra');
+const matchMin=()=>gs('min')+SIM.extra;   // durée du match + temps hors combat (non paramétrable)
 const perDay=()=>S.act*avgTr();
-const minDay=()=>S.act*matchMin();
 const crDay=()=>Math.min(DAILY_CAP,S.act*CR_PER_FIGHT);
 const capHit=()=>S.act*CR_PER_FIGHT>=DAILY_CAP;
-const nextPalier=()=>TROPHY_LEAGUE_REWARDS.find(r=>r[0]>S.lg.cur);
-const horizonEnd=()=>{const n=nextPalier();return n?Math.min(n[0],S.lg.tgt):S.lg.tgt};
-const days=()=>{const pd=perDay();return pd>0?Math.ceil(Math.max(0,horizonEnd()-S.lg.cur)/pd):0};
+const daysToTarget=()=>{const pd=perDay();return pd>0?Math.ceil(Math.max(0,S.lg.tgt-S.lg.cur)/pd):null};
 
-/* ---- Projection "au fil de l'eau" de la Ligue ---- */
-function proj(d){const gain=Math.min(Math.max(0,S.lg.tgt-S.lg.cur),perDay()*d),end=S.lg.cur+gain,l=TROPHY_LEAGUE_REWARDS.filter(r=>r[0]>S.lg.cur&&r[0]<=end);return{gain,end,n:l.length,v:sumP(l.map(r=>[r[1],r[2]]))}}
+/* ---- Ligue : récompenses obtenues en montant de S.lg.cur jusqu'à T trophées (plafonné au palier visé) ---- */
+const lgGain=T=>{const e=Math.min(T,S.lg.tgt);return sumP(TROPHY_LEAGUE_REWARDS.filter(r=>r[0]>S.lg.cur&&r[0]<=e).map(r=>[r[1],r[2]]))};
+function proj(d){const gain=Math.min(Math.max(0,S.lg.tgt-S.lg.cur),perDay()*d),end=S.lg.cur+gain;return{gain,end,v:lgGain(end)}}
 
-/* ---- Bilan net sur la période ---- */
-function calc(){const h=hangar(),og=opGain(),p=proj(days()),bp=bpRest(),need=add(add(h.L,h.M),opNeed()),gain=add(add(og,p.v),[bp[0],bp[1]]),net=[need[0]-gain[0],need[1]-gain[1]];
-return{og,p,bp,need,gain,net,farm:Math.max(0,net[0])}}
+/* ---- Battle Pass : pass complet et réinitialisation mensuelle ---- */
+const MAXD=3650;
+const bpFull=()=>bpSum(()=>true);
+const nextReset=from=>{const d=new Date(from);let t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),BP_RESET.day,BP_RESET.utcHour);if(t<=from)t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,BP_RESET.day,BP_RESET.utcHour);return t};
+const resetDays=now=>{const a=[];if(!S.bpr)return a;let r=nextReset(now);while((r-now)/864e5<=MAXD+31){a.push(Math.ceil((r-now)/864e5));r=nextReset(r)}return a};
+
+/* ---- Bilan : simulation jour par jour jusqu'à couvrir le besoin en Crédits ----
+   Revenus : farm de combat (plafonné) + gains opérateurs (étalés en moyenne sur les combats restants)
+   + récompenses de ligue (selon les trophées gagnés) + Battle Pass (reste du pass, puis pass complet à chaque reset si récurrence) */
+function calc(){
+const h=hangar(),need=add(add(h.L,h.M),opNeed()),os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur;
+const opAt=t=>{const x=M>0?Math.min(1,f*t/M):1;return[G[0]*x,G[1]*x]};
+const bp0=bpRest(),bf=bpFull(),rs=resetDays(Date.now());
+let D=null,k=0;
+for(let t=0;t<=MAXD;t++){
+while(k<rs.length&&rs[k]<=t)k++;
+if(b*t+opAt(t)[0]+lgGain(cur+pd*t)[0]+bp0[0]+k*bf[0]>=need[0]){D=t;break}}
+const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgGain(cur+pd*Dd),bp=[bp0[0]+k*bf[0],bp0[1]+k*bf[1]],farm=b*Dd;
+const dT=daysToTarget();
+return{need,op,lg,bp,k,D,Dd,b,farm,net:[need[0]-op[0]-lg[0]-bp[0],need[1]-op[1]-lg[1]-bp[1]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -128,45 +142,53 @@ const trophyInputs=()=>`<div class="grid grid-cols-2 gap-2"><label class="text-x
 function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
 
 /* ---- Onglet 3 : Récompenses ---- */
-function vEval(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyInputs()}<div id="lgr" class="text-sm space-y-1"></div><div id="rate" class="text-sm space-y-1 border-t border-mag/40 pt-2"></div></section>
-<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>${bpSlider()}<label class="flex items-center gap-2 text-sm"><input type="checkbox" ${S.bps?'checked':''} onchange="bpStd(this.checked)"> Pass Standard (récompenses ×2)</label><div id="bpr" class="text-sm space-y-1"></div></section>
+const TRI=ic('trophy.png');
+const CYC='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+function vEval(){const mm=matchMin();return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyInputs()}<div id="lgr" class="text-sm space-y-1"></div>
+<div class="border-t border-mag/40 pt-2 space-y-2"><div id="rate" class="text-sm space-y-1"></div>
+<div class="flex items-center gap-2 text-xs"><span class="w-28">Combats / jour</span><input id="actS" type="range" min="1" max="30" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
+<div class="flex items-center gap-2 text-xs"><span class="w-28">Temps de jeu / j</span><input id="timeS" type="range" min="${mm}" max="${30*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-16 text-right">${hm(S.act*mm)}</b></div></div></section>
+<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>${bpSlider()}<div class="flex items-center gap-2"><label class="flex items-center gap-2 text-sm flex-1"><input type="checkbox" ${S.bps?'checked':''} onchange="bpStd(this.checked)"> Battle Pass VIP (niv 1)</label><button class="cycle-btn ${S.bpr?'on':''}" onclick="bpRec()" aria-pressed="${S.bpr?'true':'false'}" aria-label="Récurrence mensuelle du Battle Pass" title="Récurrence mensuelle">${CYC}</button></div><div id="bpr" class="text-sm space-y-1"></div></section>
 <section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Reste net à farmer</h2><div id="net" class="text-sm space-y-1"></div></section>`}
+function applyAct(n){S.act=Math.max(1,Math.min(30,Math.round(n)||1));save();const mm=matchMin(),a=$('#actS'),t=$('#timeS'),av=$('#actV'),tv=$('#timeV');if(a)a.value=S.act;if(t)t.value=S.act*mm;if(av)av.textContent=S.act;if(tv)tv.textContent=hm(S.act*mm);upd3()}
+function actSync(v){applyAct(+v)}
+function timeSync(v){applyAct((+v)/matchMin())}
+function bpRec(){S.bpr=S.bpr?0:1;go()}
 function bpSlider(){return `<div class="flex items-center gap-2"><input type="range" min="0" max="${BP_MAX}" value="${S.bpl}" oninput="this.nextElementSibling.textContent=this.value" onchange="setTimeout(()=>bpLvl(+this.value),0)"><b class="text-mand w-8 text-right">${S.bpl}</b></div><p class="text-xs opacity-70">Niveau actuel du Pass (paliers déjà obtenus)</p>`}
 function bpLvl(v){S.bpl=Math.max(0,Math.min(BP_MAX,v));go()}
 function bpStd(v){S.bps=+v;go()}
-function upd3(){const e=$('#net');if(!e)return;const c=calc(),d=days(),pd=perDay(),m=minDay();
-$('#rate').innerHTML=kv('Trophées / jour',fmt(pd))+kv('Trophées / semaine',fmt(pd*7))+kv('Trophées / mois',fmt(pd*30))+kv('Temps de jeu / jour',hm(m))+kv('Farm Crédits / jour',fmt(crDay())+(capHit()?' (plafond)':''));
-const nx=nextPalier();$('#lgr').innerHTML=kv('Horizon (palier suivant)',(nx?'palier '+nx[0]:'Aucun')+' · '+d+' j')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+kv('Paliers débloqués',c.p.n)+row(`Gains ligue (${c.p.n} paliers)`,c.p.v,1)+kv('Temps de jeu sur la période',hm(m*d));
+const rowBoth=(l,v,b)=>`<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${fmt(v[0])} ${CR} · ${fmt(v[1])} ${AM}</span></div>`;
 const bpLine=(l,v,b)=>row(l,[v[0],v[1]],b)+(v[2]?`<div class="flex justify-between ${b?'text-mand font-bold':''}"><span>${l}</span><span>${fmt(v[2])} ${HC}</span></div>`:'');
-$('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',c.bp,1);
-const fd=capHit()?`<p class="text-xs text-mand">⚠️ Quota journalier de ${fmt(DAILY_CAP)} Crédits atteint.</p>`:'';
-e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.og)+row('Gains ligue',c.p.v)+row('Gains Battle Pass',[c.bp[0],c.bp[1]])
-+netLine('Reste net Crédits',c.net[0],CR)+netLine("Reste net Crédits d'amél.",c.net[1],AM)
-+kv('Farm estimé',c.farm?Math.ceil(c.farm/crDay())+' jour(s) plein(s)':'Aucun')
-+`<p class="text-xs opacity-70">Farm de ${fmt(crDay())} ${CR}/jour (${S.act} combats/jour).</p>${fd}`}
+function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
+$('#lgr').innerHTML=kv('Horizon (palier visé)',c.dT===null?'—':c.dT+' j')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
+$('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3"><b class="text-mand">${fmt(pd)} ${TRI} / j</b><b class="text-mand">${fmt(pd*7)} ${TRI} / sem</b><b class="text-mand">${fmt(pd*30)} ${TRI} / mois</b></div>`+kv(`${CR} / j`,fmt(crDay())+(capHit()?' (plafond)':''));
+const bf=bpFull(),rs=resetDays(Date.now());
+$('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1)+(S.bpr&&rs.length?`<p class="text-xs opacity-70">Récurrence : réinitialisation le 3 du mois à 10 h (UTC+1), prochaine dans ${rs[0]} j. Pass complet : ${fmt(bf[0])} ${CR} · ${fmt(bf[1])} ${AM}</p>`:'');
+const fd=capHit()?`<p class="text-xs text-mand">⚠️ Quota journalier de ${fmt(DAILY_CAP)} ${CR} atteint.</p>`:'';
+e.innerHTML=kv('Farm estimé',c.D===null?'plus de 10 ans':c.D+' jour(s) plein(s)')
++row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.op)+row('Gains ligue',c.lg)+row('Gains Battle Pass'+(c.k?` (+${c.k} récurrence${c.k>1?'s':''})`:''),[c.bp[0],c.bp[1]])
++netLine('Reste net Crédits',c.net[0],CR)
++row(`Farm de combat (${fmt(c.b)} ${CR}/j × ${c.Dd} j · ${S.act} combats/j)`,[c.farm,0])+fd
++netLine('Solde Crédits après farm',c.net[0]-c.farm,CR)
++netLine("Reste net Crédits d'amél.",c.net[1],AM)}
 
-
-/* ---- Navigation, sauvegarde ---- */
-const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses'],['⚙','Paramètres']];
-function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[10px] ${S.tab==i?'text-mand bg-night':'opacity-70'}">${t[0].startsWith('assets/')?`<img src="${t[0]}" alt="" class="h-7 mx-auto object-contain">`:`<div class="text-2xl leading-none">${t[0]}</div>`}<div>${t[1]}</div></button>`).join('');
+const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';
+const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses'],['gear','Paramètres']];
+function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[9px] flex flex-col items-center justify-start gap-1 min-w-0 ${S.tab==i?'text-mand bg-night':'opacity-70'}"><span class="w-7 h-7 flex items-center justify-center">${t[0]==='gear'?GEAR:`<img src="${t[0]}" alt="" class="w-7 h-7 object-contain">`}</span><span class="leading-none">${t[1]}</span></button>`).join('');
 if(S.tab>3)S.tab=0;
 $('#app').innerHTML=[vHangar,vOps,vEval,vSet][S.tab]();[,,upd3][S.tab]?.();renderModal()}
 function statsHtml(){const v=k=>gs(k);const inp=(k,l,step,val)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="${step}" min="0" value="${val}" style="width:6rem" onchange="statsIn('${k}',this.value)"></label>`;
 return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Statistiques de combat</h2>
 <div class="text-xs flex items-center gap-2"><span class="w-40">Combats par jour <b id="actVal" class="text-mand">${S.act}</b></span><input type="range" min="1" max="30" value="${S.act}" oninput="actLive(this.value)"></div>
-${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('extra','Temps hors combat / match (min)','0.01',v('extra'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / combat gagnant','0.1',v('tw'))}${inp('tl','Trophées / combat perdu','0.1',v('tl'))}
+${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / combat gagnant','0.1',v('tw'))}${inp('tl','Trophées / combat perdu','0.1',v('tl'))}
 <div class="flex justify-between text-sm"><span>Trophées / combat (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
-<div class="flex justify-between text-sm"><span>Temps par match</span><b class="text-mand">${dec(matchMin(),2)} min</b></div>
 <button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></section>`}
 function statsRefresh(){if(S.tab===3){const b=$('#statsBlock');if(b){b.outerHTML=statsHtml();return}}render()}
 function statsIn(k,v){const n=+v;if(!(n>=0)||v==='')return;S.stats[k]=k==='win'?Math.min(100,n):n;save();statsRefresh()}
-function statsReset(){S.stats={min:SIM.min,extra:SIM.extra,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.act=SIM.act;save();statsRefresh()}
+function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.act=SIM.act;save();statsRefresh()}
 function actLive(v){S.act=Math.max(1,Math.min(30,+v||1));save();const a=$('#actVal');if(a)a.textContent=S.act}
-function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde · texte (copier-coller)</h2><p class="text-xs opacity-70">Données uniquement, sans les images des chars.</p><textarea id="iot" rows="4" placeholder="Collez ici un code de sauvegarde à importer"></textarea><div class="flex gap-2"><button class="btn bev" onclick="exp()">Exporter</button><button class="btn bev" onclick="imp()">Importer</button></div></section>
-<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde · fichier ZIP</h2><p class="text-xs opacity-70">Inclut les images de personnalisation des chars.</p><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter .zip</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer .zip</button></div></section>`}
+function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde</h2><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer</button></div></section>`}
 function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${statsHtml()}${ioHtml()}`}
-async function exp(){const t=JSON.stringify({...S,chars:S.chars.map(({img,...r})=>r)});$('#iot').value=t;try{await navigator.clipboard.writeText(t);alert('Sauvegarde copiée.')}catch{$('#iot').select()}}
-function imp(){try{const o=JSON.parse($('#iot').value);if(!Array.isArray(o.chars))throw 0;o.chars=o.chars.map(c=>({...c,img:c.img||(S.chars.find(x=>x.id===c.id)||{}).img||null}));S={...def(),...o};go();alert('Sauvegarde importée.')}catch{alert('Code invalide.')}}
 function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 function pickFile(acc,cb){const i=document.createElement('input');i.type='file';i.accept=acc;i.style.display='none';document.body.appendChild(i);i.onchange=()=>{const f=i.files[0];i.remove();if(f)cb(f)};i.click()}
 async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}

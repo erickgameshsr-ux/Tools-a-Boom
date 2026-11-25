@@ -18,7 +18,9 @@ const BP_REWARDS=[[1,0,1000,0,1],[4,4000,0,0,1],[6,0,1000,0,1],[9,4000,0,0,1],[1
 const DAILY_CAP=2000; // Plafond de farm : Crédits de combat gagnés par jour
 const CR_PER_FIGHT=180; // Crédits moyens gagnés par combat normal (indicatif)
 // Simulateur : taux de victoire, trophées gagnés par match, minutes par match
-const SIM={act:5,win:75,tw:15,tl:8,min:4,extra:1}; // Valeurs par défaut : combats/jour, taux de victoires (%), trophées gagnant / perdu, durée moyenne d'un match et temps hors combat (min)
+const SIM={act:5,win:75,tw:15,tl:8,min:4,extra:1}; // Valeurs par défaut : combats/jour, taux de victoires (%), trophées gagnant / perdu, durée d'un match (min). « extra » = temps hors combat par match (matchmaking, transitions) : utilisé dans les calculs, non paramétrable.
+// Réinitialisation du Battle Pass : le 3 de chaque mois à 10 h (UTC+1) = 09 h UTC
+const BP_RESET={day:3,utcHour:9};
 const TROPHY_LEAGUE_REWARDS = [
   [10, 0, 500], [30, 500, 0], [110, 500, 0], [210, 500, 0], [270, 500, 0],
     [330, 500, 0], [440, 1500, 0], [600, 0, 1000], [720, 1500, 0], [850, 0, 1500],

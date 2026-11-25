@@ -6,7 +6,7 @@ const MODS=[[5,5000],[9,10500],[13,8400],[17,10500],[20,14000]];
 // Opérateurs : prix en Hypercrédits (0 = débloquée par défaut)
 const OPS={mia:{n:'Mia',price:0},hank:{n:'Hank',price:299},serra:{n:'Serra',price:299}};
 // Matchs requis pour passer du niveau N au niveau N+1 (index 0 = niveau 1 → 2)
-const OP_MATCHES=[3,3,3,3,3,3,3,3,3,6,8,9,9,10,10,10,10,10,10,25,32,35,37,39,41,41,42,43,45];
+const OP_MATCHES=[3,3,3,3,4,4,4,4,4,6,8,9,9,10,10,10,10,10,10,25,32,35,37,39,41,41,42,43,45];
 // Récompenses automatiques à l'obtention du niveau N (index 0 = niveau 1) : [Crédits, Crédits d'amél.]
 const OP_REWARDS=[[800,0],[0,500],[800,0],[0,500],[800,0],[0,500],[800,0],[0,500],[800,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,0],[0,2000],[3000,0],[0,0],[0,2000],[0,0],[3500,0],[0,0],[0,2000],[0,0],[4000,0]];
 // Aptitudes : [niveau requis, coût en Crédits]
@@ -18,8 +18,10 @@ const DAILY_CAP=2000; // Plafond de farm : Crédits de combat gagnés par jour
 const CR_PER_FIGHT=180; // Crédits moyens gagnés par combat normal (indicatif)
 // Simulateur : taux de victoire, trophées gagnés par match, minutes par match
 const SIM={act:5,win:75,tw:15,tl:8,min:4,extra:1}; // Valeurs par défaut : combats/jour, taux de victoires (%), trophées gagnant / perdu, durée d'un match (min). « extra » = temps hors combat par match (matchmaking, transitions) : utilisé dans les calculs, non paramétrable.
-// Réinitialisation du Battle Pass : le 3 de chaque mois à 10 h (UTC+1) = 09 h UTC
-const BP_RESET={day:3,utcHour:9};
+// Cycle du Battle Pass (modifiable dans Paramètres) : durée en jours, jour du mois du prochain reset, heure UTC+0
+const BP_RESET={dur:30,day:3,utcHour:9};
+// Bonus à l'activation du Battle Pass VIP niv2 : [Crédits, Crédits d'amél., Hypercrédits]
+const BP_V2=[20000,10000,50];
 const TROPHY_LEAGUE_REWARDS = [
   [10, 0, 500], [30, 500, 0], [110, 500, 0], [210, 500, 0], [270, 500, 0],
     [330, 500, 0], [440, 1500, 0], [600, 0, 1000], [720, 1500, 0], [850, 0, 1500],

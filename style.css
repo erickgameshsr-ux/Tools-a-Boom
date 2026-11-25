@@ -16,7 +16,7 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 #modal>div{width:100%;max-width:36rem}
 .op-card{position:relative;overflow:hidden;color:#fff;text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.85)}
 .op-bg{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
-.op-bg img{position:absolute;right:0;bottom:0;height:150px}
+.op-bg img{position:absolute;right:0;bottom:-10px;height:150px}
 .op-card>*:not(.op-bg){position:relative;z-index:1}
 .op-card .opacity-40{opacity:.75;color:#e6ebff}
 .op-card input[type=checkbox]{outline:2px solid #fff;outline-offset:1px}

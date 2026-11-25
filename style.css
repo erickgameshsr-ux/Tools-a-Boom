@@ -42,3 +42,6 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .dual input[type=range]::-moz-range-thumb{pointer-events:auto;width:16px;height:16px;border-radius:50%;background:#ff8a1f;border:2px solid #fff;cursor:pointer}
 .dual .db::-webkit-slider-thumb{background:#b02bd6}
 .dual .db::-moz-range-thumb{background:#b02bd6}
+.op-card *{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.9)}
+.op-card .opacity-60,.op-card .opacity-70{opacity:1;color:#fff}
+.op-card span,.op-card label,.op-card p{color:#fff}

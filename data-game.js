@@ -13,7 +13,9 @@ const OP_REWARDS=[[800,0],[0,500],[800,0],[0,500],[800,0],[0,500],[800,0],[0,500
 // Aptitudes : [niveau requis, coût en Crédits]
 const OP_SKILLS=[[8,8000],[16,9000],[24,10500],[30,14000]];
 // Battle Pass : Crédits, Crédits d'amél., Hypercrédits (Standard = double du F2P)
-const BP={f2p:{n:'Pass F2P',cr:40000,up:10000,hc:50},std:{n:'Pass Standard',cr:40000,up:10000,hc:50},plus:{n:'Pass Plus',cr:20000,up:10000,hc:50}};
+// Battle Pass : récompenses par palier [palier, Crédits, Crédits d'amél.] (50 paliers, Standard = ×2)
+const BP_MAX=50;
+const BP_REWARDS=[[1,1000,0],[4,4000,0],[6,1000,0],[9,4000,0],[13,4000,0],[14,0,1000],[16,0,1000],[18,4000,0],[21,0,1000],[23,4000,0],[25,0,2500],[27,0,1000],[31,0,1000],[33,4000,0],[36,0,1000],[37,4000,0],[39,4000,0],[42,4000,0],[43,0,1000],[46,0,1000],[48,4000,0]];
 const DAILY_CAP=2000; // Plafond de farm : Crédits de combat gagnés par jour
 const CR_PER_FIGHT=180; // Crédits moyens gagnés par combat normal (indicatif)
 // Simulateur : taux de victoire, trophées gagnés par match, minutes par match

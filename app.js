@@ -4,7 +4,7 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:10,per:30,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},season:'',bp:{f2p:1,std:0,plus:0},bpc:{f2p:0,std:0,plus:0}});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:10,per:30,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},season:'',bpl:0,bps:0});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -27,7 +27,9 @@ const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
 function opRem(p){const l=p.lvl,t=tgtOf(p);if(l>=t)return{g:Z,a:Z,m:0};const cur=Math.max(0,OP_MATCHES[l-1]-(p.done||0));return{g:sumP(OP_REWARDS.slice(l,t)),a:[skLeft(p),0],m:cur+OP_MATCHES.slice(l,t-1).reduce((x,y)=>x+y,0)}}
 const opNeed=()=>[owned().reduce((t,k)=>t+skLeft(S.ops[k]),0),0];
 const opGain=()=>sumP(owned().map(k=>opRem(S.ops[k]).g));
-const bpRest=()=>{let v=[0,0,0];for(const k in BP)if(S.bp[k]&&!S.bpc[k])v=[v[0]+BP[k].cr,v[1]+BP[k].up,v[2]+BP[k].hc];return v};
+const bpMul=()=>S.bps?2:1;
+const bpRest=()=>BP_REWARDS.filter(r=>r[0]>S.bpl).reduce((t,r)=>add(t,[r[1]*bpMul(),r[2]*bpMul()]),Z);
+const bpGot=()=>BP_REWARDS.filter(r=>r[0]<=S.bpl).reduce((t,r)=>add(t,[r[1]*bpMul(),r[2]*bpMul()]),Z);
 
 /* ---- Rythme de jeu & quota de farm ---- */
 const dec=(n,d)=>n.toFixed(d).replace('.',',');
@@ -84,7 +86,7 @@ let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=dow
 m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
-function vHangar0(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total restant du hangar</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
+function vHangar0(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
 <section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>`<button class="bubble${c.img?' has-img':''}" onclick="openM('c',${c.id})" style="${c.img?`background-image:url(${c.img});background-size:cover;background-position:center`:''}"><b>${esc(c.name)}</b><small>Niv. ${c.lvl}</small></button>`).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`}
 function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
 <button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
@@ -133,20 +135,21 @@ return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Li
 <section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Rythme de jeu</h2><span class="text-[10px] px-2 py-1 bg-mand text-night font-bold uppercase">Estimation</span></div>
 ${slider(30,S.act,'actIn(+this.value)')}<p class="text-xs opacity-70">Combats par jour</p><div id="rate" class="text-sm space-y-1"></div>
 <p class="text-xs opacity-70">Base : ${dec(S.stats.win,2)} % de victoires, ${dec(S.stats.tw,1)} / ${dec(S.stats.tl,1)} trophées (gagnant / perdu), ${dec(S.stats.min,2)} min/combat.</p></section>
-<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass · La Cour des Grands</h2>${Object.entries(BP).map(([k,b])=>`<div class="flex items-center gap-2 text-sm"><span class="flex-1">${b.n}<br><span class="text-xs opacity-70">${fmt(b.cr)} ${CR} · ${fmt(b.up)} ${AM} · ${b.hc} ${HC}</span></span><label class="text-xs text-center">Acquis<br><input type="checkbox" ${S.bp[k]?'checked':''} onchange="bpIn('${k}',this.checked)"></label><label class="text-xs text-center">Récupéré<br><input type="checkbox" ${S.bpc[k]?'checked':''} onchange="bpClaim('${k}',this.checked)"></label></div>`).join('')}<div id="bpr" class="text-sm space-y-1"></div></section>
+<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>${bpSlider()}<label class="flex items-center gap-2 text-sm"><input type="checkbox" ${S.bps?'checked':''} onchange="bpStd(this.checked)"> Pass Standard (récompenses ×2)</label><div id="bpr" class="text-sm space-y-1"></div></section>
 <section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Saison en cours</h2><label class="text-xs">Fin de saison<input type="date" value="${S.season}" onchange="seasonIn(this.value)"></label>
 <div class="text-sm">${dl===null?'<span class="opacity-70">Date de fin non renseignée.</span>':dl>0?`<b class="text-mand">${dl} jour(s)</b> avant la réinitialisation`:'<b class="text-mag">Saison terminée : pensez à réinitialiser le Pass.</b>'}</div>
 <button class="btn bev w-full" onclick="bpReset()">Nouvelle saison / Reset Pass</button><p class="text-xs opacity-70">Le Hangar et les opérateurs sont conservés.</p></section>
 <section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Reste net à farmer</h2><div id="net" class="text-sm space-y-1"></div></section>`}
 function perIn(v){S.per=v;go()}
-function bpIn(k,v){S.bp[k]=+v;if(!v)S.bpc[k]=0;go()}
-function bpClaim(k,v){S.bpc[k]=+v;go()}
+function bpSlider(){return `<div class="flex items-center gap-2"><input type="range" min="0" max="${BP_MAX}" value="${S.bpl}" oninput="this.nextElementSibling.textContent=this.value" onchange="bpLvl(+this.value)"><b class="text-mand w-8 text-right">${S.bpl}</b></div><p class="text-xs opacity-70">Niveau actuel du Pass (paliers déjà obtenus)</p>`}
+function bpLvl(v){S.bpl=Math.max(0,Math.min(BP_MAX,v));go()}
+function bpStd(v){S.bps=+v;go()}
 function seasonIn(v){S.season=v;go()}
-function bpReset(){if(confirm('Réinitialiser le Battle Pass ? Le Hangar et les opérateurs sont conservés.')){S.bp={f2p:1,std:0,plus:0};S.bpc={f2p:0,std:0,plus:0};go()}}
+function bpReset(){if(confirm('Réinitialiser le Battle Pass ? Le Hangar et les opérateurs sont conservés.')){S.bpl=0;S.bps=0;go()}}
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),d=days(),pd=perDay(),m=minDay();
 $('#rate').innerHTML=kv('Trophées / jour',fmt(pd))+kv('Trophées / semaine',fmt(pd*7))+kv('Trophées / mois',fmt(pd*30))+kv('Temps de jeu / jour',hm(m))+kv('Farm Crédits / jour',fmt(crDay())+(capHit()?' (plafond)':''));
 $('#lgr').innerHTML=kv('Horizon',d?d+' jour(s)':toTarget()+' jour(s) (palier visé)')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+kv('Paliers débloqués',c.p.n)+row(`Gains ligue (${c.p.n} paliers)`,c.p.v,1)+kv('Temps de jeu sur la période',hm(m*d));
-$('#bpr').innerHTML=row('Battle Pass restant (non récupéré)',c.bp,1)+`<div class="text-xs">+ ${c.bp[2]} ${HC} Hypercrédits restants</div>`;
+$('#bpr').innerHTML=row('Déjà obtenu',bpGot())+row('Restant à obtenir',c.bp,1);
 const fd=capHit()?`<p class="text-xs text-mand">⚠️ Quota journalier de ${fmt(DAILY_CAP)} Crédits atteint.</p>`:'';
 e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.og)+row('Gains ligue',c.p.v)+row('Gains Battle Pass',[c.bp[0],c.bp[1]])
 +netLine('Reste net Crédits',c.net[0],CR)+netLine("Reste net Crédits d'amél.",c.net[1],AM)
@@ -156,18 +159,18 @@ e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.
 function actIn(v){S.act=Math.max(1,v||1);go()}
 
 /* ---- Navigation, sauvegarde ---- */
-const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses']];
-function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[10px] ${S.tab==i?'text-mand bg-night':'opacity-70'}"><img src="${t[0]}" alt="" class="h-7 mx-auto object-contain"><div>${t[1]}</div></button>`).join('');
-if(S.tab>2)S.tab=0;
-$('#app').innerHTML=[vHangar,vOps,vEval][S.tab]();[,,upd3][S.tab]?.();renderModal()}
+const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses'],['⚙','Paramètres']];
+function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[10px] ${S.tab==i?'text-mand bg-night':'opacity-70'}">${t[0].startsWith('assets/')?`<img src="${t[0]}" alt="" class="h-7 mx-auto object-contain">`:`<div class="text-2xl leading-none">${t[0]}</div>`}<div>${t[1]}</div></button>`).join('');
+if(S.tab>3)S.tab=0;
+$('#app').innerHTML=[vHangar,vOps,vEval,vSet][S.tab]();[,,upd3][S.tab]?.();renderModal()}
 function statsHtml(){const st=S.stats;const inp=(k,l,step,v)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="${step}" min="0" value="${v}" style="width:6rem" onchange="statsIn('${k}',this.value)"></label>`;
 return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Statistiques de combat</h2>${inp('min','Durée moyenne d\'un match (min)','0.01',st.min)}${inp('win','Taux de victoires (%)','0.01',st.win)}${inp('tw','Trophées / combat gagnant','0.1',st.tw)}${inp('tl','Trophées / combat perdu','0.1',st.tl)}<div class="flex justify-between text-sm"><span>Trophées / combat (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div><button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></section>`}
-function statsRefresh(){render();const b=$('#statsBlock');if(b)b.outerHTML=statsHtml()}
+function statsRefresh(){if(S.tab===3){const b=$('#statsBlock');if(b){b.outerHTML=statsHtml();return}}render()}
 function statsIn(k,v){const n=+v;if(!(n>=0)||v==='')return;S.stats[k]=k==='win'?Math.min(100,n):n;save();statsRefresh()}
 function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};save();statsRefresh()}
-function ioHtml(){return `${statsHtml()}<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde · texte (copier-coller)</h2><p class="text-xs opacity-70">Données uniquement, sans les images des chars.</p><textarea id="iot" rows="4" placeholder="Collez ici un code de sauvegarde à importer"></textarea><div class="flex gap-2"><button class="btn bev" onclick="exp()">Exporter</button><button class="btn bev" onclick="imp()">Importer</button></div></section>
+function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde · texte (copier-coller)</h2><p class="text-xs opacity-70">Données uniquement, sans les images des chars.</p><textarea id="iot" rows="4" placeholder="Collez ici un code de sauvegarde à importer"></textarea><div class="flex gap-2"><button class="btn bev" onclick="exp()">Exporter</button><button class="btn bev" onclick="imp()">Importer</button></div></section>
 <section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde · fichier ZIP</h2><p class="text-xs opacity-70">Inclut les images de personnalisation des chars.</p><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter .zip</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer .zip</button></div></section>`}
-const toggleIO=()=>{const e=$('#io');if(e.classList.contains('hidden'))e.innerHTML=ioHtml();e.classList.toggle('hidden')};
+function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${statsHtml()}${ioHtml()}`}
 async function exp(){const t=JSON.stringify({...S,chars:S.chars.map(({img,...r})=>r)});$('#iot').value=t;try{await navigator.clipboard.writeText(t);alert('Sauvegarde copiée.')}catch{$('#iot').select()}}
 function imp(){try{const o=JSON.parse($('#iot').value);if(!Array.isArray(o.chars))throw 0;o.chars=o.chars.map(c=>({...c,img:c.img||(S.chars.find(x=>x.id===c.id)||{}).img||null}));S={...def(),...o};go();alert('Sauvegarde importée.')}catch{alert('Code invalide.')}}
 function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}

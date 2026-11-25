@@ -9,7 +9,7 @@ let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
 let D={lvl:1,mods:[0,0,0,0,0],img:null};
-let UI={m:null,t:{h:false,o:false,l:false}};   // état d'affichage (fenêtre ouverte), non sauvegardé
+let UI={m:null,t:{h:false,o:false,l:false,s:false}};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
 const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
@@ -66,7 +66,9 @@ for(let t=0;t<=MAXD;t++){
 while(k<rs.length&&rs[k]<=t)k++;
 if(b*t+opAt(t)[0]+lgA(t)[0]+bp0[0]+k*bf[0]>=need[0]){D=t;break}}
 const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bp=[bp0[0]+k*bf[0],bp0[1]+k*bf[1]],farm=b*Dd,dT=daysToTarget();
-return{need,dc:h.T,dop,op,lg,bp,k,D,Dd,b,farm,tot:[farm+bp[0]+lg[0]+op[0],bp[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
+const bB=bpSum(r=>r[0]>S.bpl,0),fB=bpSum(()=>true,0),fT=bpSum(()=>true,S.bpr),rT=bpRest(),sb=(a,c)=>a.map((x,i)=>x-c[i]),v1r=sb(rT,bB),v1f=sb(fT,fB);
+const bpB=[bB[0]+k*fB[0],bB[1]+k*fB[1]],bpV1=[v1r[0]+k*v1f[0],v1r[1]+k*v1f[1]],bpV2=S.bpr===2?[k*BP_V2[0],k*BP_V2[1]]:[0,0];
+return{need,dc:h.T,dop,op,lg,bp,bpB,bpV1,bpV2,k,D,Dd,b,farm,tot:[farm+bp[0]+lg[0]+op[0],bp[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -148,12 +150,14 @@ function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[
 const TRI=ic('trophy.png');
 const CYC='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 function statsHtml(){const v=k=>gs(k),mm=matchMin();const inp=(k,l,step,val)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="${step}" min="0" value="${val}" style="width:6rem" onchange="statsIn('${k}',this.value)"></label>`;
+const det=`<div class="space-y-2 border-t border-mag/40 pt-2"><div id="crp" class="text-sm text-right"></div>
+${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / match gagnant','0.1',v('tw'))}${inp('tl','Trophées / match perdu','0.1',v('tl'))}
+<div class="flex justify-between text-sm"><span>Trophées / match (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
+<button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></div>`;
 return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Statistiques de Matchs</h2>
 <div class="flex items-center gap-2 text-xs"><span class="w-28">Matchs / jour</span><input id="actS" type="range" min="1" max="${MAXACT}" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
 <div class="flex items-center gap-2 text-xs"><span class="w-28">Temps de jeu / j</span><input id="timeS" type="range" min="${mm}" max="${MAXACT*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-20 text-right">${hm(S.act*mm)}</b></div>
-${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / match gagnant','0.1',v('tw'))}${inp('tl','Trophées / match perdu','0.1',v('tl'))}
-<div class="flex justify-between text-sm"><span>Trophées / match (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
-<button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></section>`}
+<button class="btn bev w-full text-xs" onclick="toggleT('s')">${UI.t.s?'▲ Masquer les statistiques':'▼ Détails des statistiques'}</button>${UI.t.s?det:''}</section>`}
 function statsRefresh(){const b=$('#statsBlock');if(S.tab===2&&b){b.outerHTML=statsHtml();upd3();return}render()}
 function statsIn(k,v){const n=+v;if(!(n>=0)||v==='')return;S.stats[k]=k==='win'?Math.min(100,n):n;save();statsRefresh()}
 function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.act=SIM.act;save();statsRefresh()}
@@ -161,7 +165,6 @@ function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.ac
 function vEval(){const ms=nextReset(Date.now())-Date.now(),nr=`${Math.floor(ms/864e5)}j ${Math.floor(ms%864e5/36e5)}h`;
 const vip=(n,l)=>`<div class="flex items-center gap-2"><label class="flex items-center gap-2 text-sm flex-1"><input type="checkbox" ${S.bps===n?'checked':''} onchange="bpStd(${n},this.checked)"> ${l}</label><button class="cycle-btn ${S.bpr===n?'on':''}" onclick="bpRec(${n})" aria-pressed="${S.bpr===n}" aria-label="Récurrence ${l}" title="Récurrence">${CYC}</button></div>`;
 return statsHtml()
-+`<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Crédits / jour</h2><div id="crp" class="text-sm"></div></section>`
 +`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyCur()}<div id="rate" class="text-sm"></div>
 <button class="btn bev w-full text-xs" onclick="toggleT('l')">${UI.t.l?'▲ Masquer le calculateur':'▼ Calculateur de trophées visés'}</button>${UI.t.l?`<div class="space-y-2 border-t border-mag/40 pt-2">${trophyTgt()}<div id="lgr" class="text-sm space-y-1"></div></div>`:''}</section>`
 +`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Battle Pass</h2><span class="text-xs text-mand font-bold">${nr}</span></div>${bpSlider()}${vip(1,'Battle Pass VIP (niv 1)')}${vip(2,'Battle Pass VIP (niv 2)')}<div id="bpr" class="text-sm space-y-1"></div></section>`
@@ -176,14 +179,15 @@ function bpStd(n,ck){S.bps=ck?n:0;go()}
 const rowBoth=(l,v,b)=>`<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${fmt(v[0])} ${CR} · ${fmt(v[1])} ${AM}</span></div>`;
 const bpLine=(l,v,b)=>row(l,[v[0],v[1]],b)+(v[2]?`<div class="flex justify-between ${b?'text-mand font-bold':''}"><span>${l}</span><span>${fmt(v[2])} ${HC}</span></div>`:'');
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
-const L=$('#lgr');if(L)L.innerHTML=kv('Horizon (palier visé)',c.dT===null?'—':c.dT+' j')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
-$('#crp').innerHTML=kv(`${CR} / j`,fmt(crDay())+(capHit()?' (plafond)':''));
-$('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3"><b class="text-mand">${fmt(pd)} ${TRI} / j</b><b class="text-mand">${fmt(pd*7)} ${TRI} / sem</b><b class="text-mand">${fmt(pd*30)} ${TRI} / mois</b></div>`;
+const L=$('#lgr');if(L)L.innerHTML=kv('Temps estimé',c.dT===null?'—':c.dT+' j')+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
+const cp=$('#crp');if(cp)cp.innerHTML=`<b class="text-mand">${fmt(crDay())} ${CR} / j</b>`;
+const col=(n,l)=>`<div><b class="text-mand">${fmt(n)} ${TRI} / ${l}</b><div class="text-sm">= ${fmt(S.lg.cur+n)} ${TRI}</div></div>`;
+$('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(pd,'j')}${col(pd*7,'sem')}${col(pd*30,'mois')}</div>`;
 $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1);
 const sep='<hr class="border-mag/40 my-1">';
-const bpL=(S.bps===2?'Battle Pass VIP niv2':S.bps===1?'Battle Pass + VIP niv1':'Battle Pass')+(c.k?` (+${c.k} BP ${S.bpr===2?'VIP niv2 ':S.bpr===1?'VIP niv1 ':''}complété${c.k>1?'s':''})`:'');
+const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} BP complété${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,[c.bp[0],c.bp[1]])+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bpB)+((S.bps||S.bpr)?row('Battle Pass VIP niv1',c.bpV1):'')+(S.bpr===2&&c.k?row(`Battle Pass VIP niv2 (+${c.k} abonnement${pl})`,c.bpV2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

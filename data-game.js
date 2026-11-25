@@ -17,7 +17,7 @@ const BP={f2p:{n:'Pass F2P',cr:40000,up:10000,hc:50},std:{n:'Pass Standard',cr:4
 const DAILY_CAP=2000; // Plafond de farm : Crédits de combat gagnés par jour
 const CR_PER_FIGHT=180; // Crédits moyens gagnés par combat normal (indicatif)
 // Simulateur : taux de victoire, trophées gagnés par match, minutes par match
-const SIM={win:0.7674,gain:9.27,min:3.41};
+const SIM={win:76.74,tw:14.5,tl:8,min:3.41}; // Stats par défaut : taux de victoires (%), trophées par combat gagnant / perdu, durée moyenne d'un match (min)
 const TROPHY_LEAGUE_REWARDS = [
   [10, 0, 500], [30, 500, 0], [110, 500, 0], [210, 500, 0], [270, 500, 0],
     [330, 500, 0], [440, 1500, 0], [600, 0, 1000], [720, 1500, 0], [850, 0, 1500],

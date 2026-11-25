@@ -27,14 +27,14 @@ const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
 function opRem(p){const l=p.lvl,t=tgtOf(p);if(l>=t)return{g:Z,a:Z,m:0};const cur=Math.max(0,OP_MATCHES[l-1]-(p.done||0));return{g:sumP(OP_REWARDS.slice(l,t)),a:[skLeft(p),0],m:cur+OP_MATCHES.slice(l,t-1).reduce((x,y)=>x+y,0)}}
 const opNeed=()=>[owned().reduce((t,k)=>t+skLeft(S.ops[k]),0),0];
 const opGain=()=>sumP(owned().map(k=>opRem(S.ops[k]).g));
-const bpMul=()=>S.bps?2:1;
-const bpRest=()=>BP_REWARDS.filter(r=>r[0]>S.bpl).reduce((t,r)=>add(t,[r[1]*bpMul(),r[2]*bpMul()]),Z);
-const bpGot=()=>BP_REWARDS.filter(r=>r[0]<=S.bpl).reduce((t,r)=>add(t,[r[1]*bpMul(),r[2]*bpMul()]),Z);
+const bpSum=f=>BP_REWARDS.filter(f).reduce((t,r)=>{const m=S.bps&&r[4]?2:1;return[t[0]+r[1]*m,t[1]+r[2]*m,t[2]+r[3]*m]},[0,0,0]);
+const bpRest=()=>bpSum(r=>r[0]>S.bpl);
+const bpGot=()=>bpSum(r=>r[0]<=S.bpl);
 
 /* ---- Rythme de jeu & quota de farm ---- */
 const dec=(n,d)=>n.toFixed(d).replace('.',',');
 const winR=()=>Math.min(100,Math.max(0,S.stats.win))/100;
-const avgTr=()=>winR()*S.stats.tw+(1-winR())*S.stats.tl;
+const avgTr=()=>winR()*S.stats.tw-(1-winR())*S.stats.tl;
 const perDay=()=>S.act*avgTr();
 const minDay=()=>S.act*S.stats.min;
 const crDay=()=>Math.min(DAILY_CAP,S.act*CR_PER_FIGHT);
@@ -149,7 +149,8 @@ function bpReset(){if(confirm('Réinitialiser le Battle Pass ? Le Hangar et les 
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),d=days(),pd=perDay(),m=minDay();
 $('#rate').innerHTML=kv('Trophées / jour',fmt(pd))+kv('Trophées / semaine',fmt(pd*7))+kv('Trophées / mois',fmt(pd*30))+kv('Temps de jeu / jour',hm(m))+kv('Farm Crédits / jour',fmt(crDay())+(capHit()?' (plafond)':''));
 $('#lgr').innerHTML=kv('Horizon',d?d+' jour(s)':toTarget()+' jour(s) (palier visé)')+kv('Trophées atteints',fmt(c.p.end)+' / '+fmt(S.lg.tgt))+kv('Trophées gagnés',fmt(c.p.gain))+kv('Paliers débloqués',c.p.n)+row(`Gains ligue (${c.p.n} paliers)`,c.p.v,1)+kv('Temps de jeu sur la période',hm(m*d));
-$('#bpr').innerHTML=row('Déjà obtenu',bpGot())+row('Restant à obtenir',c.bp,1);
+const bpLine=(l,v,b)=>row(l,[v[0],v[1]],b)+(v[2]?`<div class="flex justify-between ${b?'text-mand font-bold':''}"><span>${l}</span><span>${fmt(v[2])} ${HC}</span></div>`:'');
+$('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',c.bp,1);
 const fd=capHit()?`<p class="text-xs text-mand">⚠️ Quota journalier de ${fmt(DAILY_CAP)} Crédits atteint.</p>`:'';
 e.innerHTML=row('Besoin (hangar + aptitudes)',c.need)+row('Gains opérateurs',c.og)+row('Gains ligue',c.p.v)+row('Gains Battle Pass',[c.bp[0],c.bp[1]])
 +netLine('Reste net Crédits',c.net[0],CR)+netLine("Reste net Crédits d'amél.",c.net[1],AM)

@@ -6,8 +6,7 @@ const MODS=[[5,5000],[9,10500],[13,8400],[17,10500],[20,14000]];
 // Opérateurs : prix en Hypercrédits (0 = débloquée par défaut)
 const OPS={mia:{n:'Mia',price:0},hank:{n:'Hank',price:299},serra:{n:'Serra',price:299}};
 // Matchs requis pour passer du niveau N au niveau N+1 (index 0 = niveau 1 → 2)
-// TODO: Paliers 25, 28 et 29 simulés
-const OP_MATCHES=[3,3,3,3,3,3,3,3,3,6,8,9,9,10,10,10,10,10,10,25,32,35,37,39,40,41,42,43,44];
+const OP_MATCHES=[3,3,3,3,3,3,3,3,3,6,8,9,9,10,10,10,10,10,10,25,32,35,37,39,41,41,42,43,45];
 // Récompenses automatiques à l'obtention du niveau N (index 0 = niveau 1) : [Crédits, Crédits d'amél.]
 const OP_REWARDS=[[800,0],[0,500],[800,0],[0,500],[800,0],[0,500],[800,0],[0,500],[800,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,1000],[1500,0],[0,0],[0,2000],[3000,0],[0,0],[0,2000],[0,0],[3500,0],[0,0],[0,2000],[0,0],[4000,0]];
 // Aptitudes : [niveau requis, coût en Crédits]

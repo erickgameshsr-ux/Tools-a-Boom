@@ -7,7 +7,9 @@ fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#
 const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3,res:[0,0,0]});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const fixS=()=>S.chars.forEach(c=>{if(c.fav===undefined)c.fav=1});fixS();   // chars créés avant les favoris : considérés comme favoris
-const fixRes=()=>{S.res=Array.isArray(S.res)&&S.res.length===3?S.res.map(v=>Math.max(0,Math.floor(+v||0))):[0,0,0]};fixRes();   // anciennes sauvegardes sans ressources : [0,0,0]
+const RES_MAX=999999999;   // plafond de saisie des ressources actuelles (évite débordements de mise en page et pertes de précision)
+const clampRes=v=>Math.min(RES_MAX,Math.max(0,Math.floor(+v||0)));
+const fixRes=()=>{S.res=Array.isArray(S.res)&&S.res.length===3?S.res.map(clampRes):[0,0,0]};fixRes();   // anciennes sauvegardes sans ressources : [0,0,0]
 const newId=()=>{let i=Date.now();while(S.chars.some(c=>c.id===i))i++;return i};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -98,7 +100,8 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
 
 /* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses (Crédits, Crédits d'amél. ET Hypercrédits) ----
    Dépenses : chars (niveaux + modules) + aptitudes des opérateurs acquis + prix de déblocage (HC) des opérateurs non acquis
-   Récompenses : ressources actuelles S.res (capital déjà en banque à t = 0) + crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier, dont HC)
+   Stock : ressources actuelles S.res (capital déjà en banque à t = 0), compté dans la condition d'arrêt mais PAS dans les récompenses affichées
+   Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier, dont HC)
    Les HC proviennent du capital S.res[2], du Battle Pass (paliers 10/20/30/45, doublés en VIP) et du bonus VIP niv.2 (BP_V2[2]). */
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
@@ -136,8 +139,10 @@ r=chk(m)}
 farm=r.fm;op=r.o;lg=r.l;bpFull=cum;bpVip1=vip1;bpVip2=vip2;k=kk}
 // bp = voie gratuite seule : bp+bpVip1+bpVip2=bpFull toujours
 const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
-// tot = res + farm + bp + vip1 + vip2 + lg + op : somme exacte des lignes affichées
-return{need,dc:h.T,dop,res,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[res[0]+farm+bpFull[0]+lg[0]+op[0],res[1]+bpFull[1]+lg[1]+op[1],res[2]+bpFull[2]],dT,p:proj(dT||0)}}
+// tot = farm + bp + vip1 + vip2 + lg + op : uniquement les récompenses réellement obtenues (sans le stock res)
+// left = reste à farmer après déduction du stock actuel
+const left=[Math.max(0,need[0]-res[0]),Math.max(0,need[1]-res[1]),Math.max(0,need[2]-res[2])];
+return{need,dc:h.T,dop,res,left,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1],bpFull[2]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -277,8 +282,8 @@ const trophyTgt=()=>`<label class="text-xs">Trophées visés<input data-lg="tgt"
 function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
 
 /* ---- Ressources actuelles : capital déjà en banque (t = 0), saisie sans reconstruction de la page ---- */
-const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ressources actuelles</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,'Crédits'],[1,AM,"Crédits d'amélioration"],[2,HC,'Hypercrédits']].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
-function resIn(i,v){S.res[i]=Math.max(0,Math.floor(+v||0));save();upd3()}
+const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ressources actuelles</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,'Crédits'],[1,AM,"Crédits d'amélioration"],[2,HC,'Hypercrédits']].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" max="${RES_MAX}" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
+function resIn(i,v){S.res[i]=clampRes(v);document.querySelectorAll(`[data-res="${i}"]`).forEach(e=>{if(+e.value>RES_MAX)e.value=RES_MAX});save();upd3()}
 
 /* ---- Onglet 3 : Récompenses ---- */
 const TRI=ic('trophy.png');
@@ -322,8 +327,9 @@ $('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(
 $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1);
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
-e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+((c.res[0]||c.res[1]||c.res[2])?row('Ressources actuelles',c.res):'')+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
+e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)
++((c.res[0]||c.res[1]||c.res[2])?row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1):'')+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

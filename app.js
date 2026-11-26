@@ -4,9 +4,10 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3,res:[0,0,0]});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const fixS=()=>S.chars.forEach(c=>{if(c.fav===undefined)c.fav=1});fixS();   // chars créés avant les favoris : considérés comme favoris
+const fixRes=()=>{S.res=Array.isArray(S.res)&&S.res.length===3?S.res.map(v=>Math.max(0,Math.floor(+v||0))):[0,0,0]};fixRes();   // anciennes sauvegardes sans ressources : [0,0,0]
 const newId=()=>{let i=Date.now();while(S.chars.some(c=>c.id===i))i++;return i};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -97,11 +98,11 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
 
 /* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses (Crédits, Crédits d'amél. ET Hypercrédits) ----
    Dépenses : chars (niveaux + modules) + aptitudes des opérateurs acquis + prix de déblocage (HC) des opérateurs non acquis
-   Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier, dont HC)
-   Les HC proviennent uniquement du Battle Pass (paliers 10/20/30/45, doublés en VIP) et du bonus VIP niv.2 (BP_V2[2]). */
+   Récompenses : ressources actuelles S.res (capital déjà en banque à t = 0) + crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier, dont HC)
+   Les HC proviennent du capital S.res[2], du Battle Pass (paliers 10/20/30/45, doublés en VIP) et du bonus VIP niv.2 (BP_V2[2]). */
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
-const h=hangar(),dop=opNeed(),need=[h.T[0]+dop[0],h.T[1]+dop[1],dop[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr();
+const h=hangar(),dop=opNeed(),need=[h.T[0]+dop[0],h.T[1]+dop[1],dop[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
 const opN=n=>{const x=M>0?Math.min(1,n/M):1;return[G[0]*x,G[1]*x]};
 const opAt=t=>opN(f*t);
 const lgA=t=>lgGain(cur+pd*t,1/0);
@@ -109,7 +110,7 @@ const rs=resetDays(Date.now()),sim=bpRun(rs);
 let D=null;
 for(let t=0;t<=MAXD;t++){
 const bpT=sim.cumArr[t];
-if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]&&bpT[2]>=need[2]){D=t;break}}
+if(res[0]+b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&res[1]+opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]&&res[2]+bpT[2]>=need[2]){D=t;break}}
 const Dd=D===null?MAXD:D,dT=daysToTarget();
 let farm=b*Dd,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd];
 /* Affinage du jour D, match par match, à partir de l'état de fin du jour D-1 */
@@ -117,7 +118,7 @@ if(D>=1){
 let{tier,xp,ss,vip,cum,vip1,vip2,k:kk}=sim.stArr[D-1];
 const n0=(D-1)*f,f0=(D-1)*b;
 const chk=m=>{const n=n0+m,fm=f0+Math.min(DAILY_CAP,m*CR_PER_FIGHT),o=opN(n),l=lgGain(cur+tr*n,1/0);
-return{fm,o,l,hit:fm+o[0]+l[0]+cum[0]>=need[0]&&o[1]+l[1]+cum[1]>=need[1]&&cum[2]>=need[2]}};
+return{fm,o,l,hit:res[0]+fm+o[0]+l[0]+cum[0]>=need[0]&&res[1]+o[1]+l[1]+cum[1]>=need[1]&&res[2]+cum[2]>=need[2]}};
 // m = 0 : reset éventuel + stock de missions de saison du jour
 if(rs.includes(D)){tier=0;xp=0;ss=0;vip=S.bpr;if(vip===2){cum=add3(cum,BP_V2);vip2=add3(vip2,BP_V2)}kk++}
 ss+=vip?BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_VIP:BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_F2P;
@@ -135,7 +136,8 @@ r=chk(m)}
 farm=r.fm;op=r.o;lg=r.l;bpFull=cum;bpVip1=vip1;bpVip2=vip2;k=kk}
 // bp = voie gratuite seule : bp+bpVip1+bpVip2=bpFull toujours
 const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
-return{need,dc:h.T,dop,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1],bpFull[2]],dT,p:proj(dT||0)}}
+// tot = res + farm + bp + vip1 + vip2 + lg + op : somme exacte des lignes affichées
+return{need,dc:h.T,dop,res,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[res[0]+farm+bpFull[0]+lg[0]+op[0],res[1]+bpFull[1]+lg[1]+op[1],res[2]+bpFull[2]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -274,6 +276,10 @@ const trophyCur=()=>`<label class="text-xs">Trophées actuels<input data-lg="cur
 const trophyTgt=()=>`<label class="text-xs">Trophées visés<input data-lg="tgt" type="number" min="0" value="${S.lg.tgt}" oninput="lgIn('tgt',this.value)"></label>`;
 function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
 
+/* ---- Ressources actuelles : capital déjà en banque (t = 0), saisie sans reconstruction de la page ---- */
+const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ressources actuelles</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,'Crédits'],[1,AM,"Crédits d'amélioration"],[2,HC,'Hypercrédits']].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
+function resIn(i,v){S.res[i]=Math.max(0,Math.floor(+v||0));save();upd3()}
+
 /* ---- Onglet 3 : Récompenses ---- */
 const TRI=ic('trophy.png');
 const CYC='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
@@ -297,6 +303,7 @@ return statsHtml()
 +`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyCur()}<div id="rate" class="text-sm"></div>
 <button class="btn bev w-full text-xs" onclick="toggleT('l')">${UI.t.l?'▲ Masquer le calculateur':'▼ Calculateur de trophées visés'}</button>${UI.t.l?`<div class="space-y-2 border-t border-mag/40 pt-2">${trophyTgt()}<div id="lgr" class="text-sm space-y-1"></div></div>`:''}</section>`
 +`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Battle Pass</h2><span class="text-xs text-mand font-bold">${nr}</span></div>${bpSlider()}${vip(1,'Battle Pass VIP (niv 1)')}${vip(2,'Battle Pass VIP (niv 2)')}<div id="bpr" class="text-sm space-y-1"></div></section>`
++resCard()
 +`<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Estimation de Farm</h2><div id="net" class="text-sm space-y-1"></div></section>`}
 function applyAct(n){S.act=Math.max(1,Math.min(MAXACT,Math.round(n)||1));save();const mm=matchMin(),a=$('#actS'),t=$('#timeS'),av=$('#actV'),tv=$('#timeV');if(a)a.value=S.act;if(t)t.value=S.act*mm;if(av)av.textContent=S.act;if(tv)tv.textContent=hm(S.act*mm);upd3()}
 function actSync(v){applyAct(+v)}
@@ -316,7 +323,7 @@ $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++((c.res[0]||c.res[1]||c.res[2])?row('Ressources actuelles',c.res):'')+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';
@@ -337,5 +344,5 @@ function pickFile(acc,cb){const i=document.createElement('input');i.type='file';
 async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}
 async function impZip(f){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
 o.chars=await Promise.all(o.chars.map(async c=>{const{imgFile,...r}=c;if(imgFile&&z.file(imgFile)){return{...r,img:'data:image/jpeg;base64,'+await z.file(imgFile).async('base64')}}return{...r,img:r.img||null}}));
-S={...def(),...o};fixS();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
+S={...def(),...o};fixS();fixRes();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
 render();

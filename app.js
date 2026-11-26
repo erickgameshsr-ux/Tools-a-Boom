@@ -4,17 +4,19 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3,res:[0,0,0]});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3,res:[0,0,0],inc:{ch:1,op:1}});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const fixS=()=>S.chars.forEach(c=>{if(c.fav===undefined)c.fav=1});fixS();   // chars créés avant les favoris : considérés comme favoris
 const RES_MAX=999999999;   // plafond de saisie des ressources actuelles (évite débordements de mise en page et pertes de précision)
 const clampRes=v=>Math.min(RES_MAX,Math.max(0,Math.floor(+v||0)));
-const fixRes=()=>{S.res=Array.isArray(S.res)&&S.res.length===3?S.res.map(clampRes):[0,0,0]};fixRes();   // anciennes sauvegardes sans ressources : [0,0,0]
+const fixRes=()=>{S.res=Array.isArray(S.res)&&S.res.length===3?S.res.map(clampRes):[0,0,0]};fixRes();
+const fixInc=()=>{const i=S.inc||{};S.inc={ch:i.ch===0?0:1,op:i.op===0?0:1}};fixInc();   // dépenses incluses dans le pronostic (1 = oui) ; anciennes sauvegardes : tout inclus   // anciennes sauvegardes sans ressources : [0,0,0]
 const newId=()=>{let i=Date.now();while(S.chars.some(c=>c.id===i))i++;return i};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
 let D={lvl:1,mods:[0,0,0,0,0],img:null,ind:'',cls:''};
-let UI={m:null,t:{h:false,o:false,l:false,s:false,a:false,c:false},f:{h:{o:false,ind:[],cls:[]},c:{o:false,ind:[],cls:[]}}};   // état d'affichage (fenêtre ouverte), non sauvegardé
+let P=null;   // brouillon d'un char de la boutique en cours de configuration (non sauvegardé)
+let UI={m:null,t:{h:false,o:false,l:false,s:false,a:false,c:false,f:false},f:{h:{o:false,ind:[],cls:[]},c:{o:false,ind:[],cls:[]}}};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
 /* row : accepte [Crédits, Crédits d'amél., Hypercrédits] ; les HC ne s'affichent que s'ils sont > 0 */
 const row=(l,v,b)=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
@@ -106,7 +108,7 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
    dR[i] = premier jour t où la ressource i couvre sa dépense ; D = max(dR) (jour où les trois sont couvertes). */
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
-const h=hangar(),dop=opNeed(),need=[h.T[0]+dop[0],h.T[1]+dop[1],dop[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
+const h=hangar(),dop=opNeed(),dcx=S.inc.ch?h.T:Z,dpx=S.inc.op?dop:[0,0,0],need=[dcx[0]+dpx[0],dcx[1]+dpx[1],dpx[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
 const opN=n=>{const x=M>0?Math.min(1,n/M):1;return[G[0]*x,G[1]*x]};
 const opAt=t=>opN(f*t);
 const lgA=t=>lgGain(cur+pd*t,1/0);
@@ -153,11 +155,11 @@ const left=[Math.max(0,need[0]-res[0]),Math.max(0,need[1]-res[1]),Math.max(0,nee
 const surplus=tot.map((x,i)=>Math.max(0,res[i]+x-need[i]));
 // Mtot = matchs futurs simulés jusqu'à l'arrêt
 const Mtot=D===null?null:(D===0?0:(D-1)*f+mS);
-return{need,dc:h.T,dop,res,left,op,lg,bp,bpVip1,bpVip2,k,D,Dd,dR,Mtot,surplus,b,farm,tot,dT,p:proj(dT||0)}}
+return{need,inc:S.inc,dc:h.T,dop,res,left,op,lg,bp,bpVip1,bpVip2,k,D,Dd,dR,Mtot,surplus,b,farm,tot,dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
-const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
-const closeM=()=>{UI.m=null;render()};
+const openM=(t,id)=>{if(t==='p')P={key:id,lvl:1,mods:[0,0,0,0,0]};UI.m=t==='c'?{t:'c',id}:t==='p'?{t:'p'}:{t:'a'};render()};
+const closeM=()=>{UI.m=null;P=null;render()};
 /* ---- Tableaux de nivellement (dépliables) ---- */
 const toggleT=k=>{UI.t[k]=!UI.t[k];render()};
 const lvlTbl=(head,rows)=>`<div class="overflow-x-auto"><table class="lvl-tbl"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
@@ -185,10 +187,11 @@ function renderModal(){const m=$('#modal');
 if(!UI.m){m.className='';m.innerHTML='';m.onclick=null;return}
 let body;
 if(UI.m.t==='a')body=addForm();
+else if(UI.m.t==='p'){if(!P){UI.m=null;m.className='';m.innerHTML='';return}body=pCard()}
 else{const c=byId(UI.m.id);if(!c){UI.m=null;m.className='';m.innerHTML='';return}body=charCard(c)}
 m.className='open';
 let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=down&&e.target===m;down=false;if(ok)closeM()};
-m.innerHTML=`<div>${UI.m.t==='a'?body:body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
+m.innerHTML=`<div>${UI.m.t!=='c'?body:body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
 /* ---- Chars de la boutique (masquée) : nom/image dérivés de CHARS via c.key ---- */
@@ -213,13 +216,19 @@ function fTog(k,t,v){const a=UI.f[k][t],i=a.indexOf(v);i<0?a.push(v):a.splice(i,
 function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
 <section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Mon Hangar</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
 +`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} Chars</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="Créer un char"><span class="pl">+</span><b>Créer un char</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
-function addCat(key,to){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);go()}
+function addCat(key,to,open,cfg){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:cfg?cfg.lvl:1,mods:cfg?[...cfg.mods]:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);P=null;UI.m=open?{t:'c',id:n.id}:null;go()}
+/* Carte de configuration d'un char de la boutique (clic) : le char n'est ajouté au hangar qu'au clic sur « Ajouter » */
+function pCard(){const c={key:P.key,lvl:P.lvl,mods:P.mods,fav:0},nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0),lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
+return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="Fermer">✕</button><h2 class="text-mand text-sm pr-8">Ajouter au hangar</h2><div class="flex justify-center"><div style="width:7rem">${bub(c,'',1,'div')}</div></div><b class="ttl text-sm block">${esc(cName(c))}</b>${slider(20,c.lvl,'pLvl(+this.value)')}${boxes(MODS,c.lvl,c.mods,i=>`pMod(${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row("Reste jusqu'au niv. 20",lvlRest)}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div><button class="btn bev w-full" onclick="pAdd()">Ajouter</button></section>`}
+function pLvl(v){if(!P)return;P.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])P.mods[i]=0});render()}
+function pMod(i,v){if(!P)return;P.mods[i]=+v;render()}
+function pAdd(){if(P)addCat(P.key,null,false,P)}
 function moveChar(id,to){const a=S.chars,i=a.findIndex(c=>c.id===id),ti=to==null?-1:a.findIndex(c=>c.id===to);if(i<0)return;const[c]=a.splice(i,1);a.splice(ti<0?a.length:ti,0,c);go()}
 function toggleFav(id){const a=S.chars,i=a.findIndex(c=>c.id===id);if(i<0)return;const c=a[i];c.fav=c.fav?0:1;a.splice(i,1);let j;if(c.fav){j=a.findIndex(x=>!x.fav);if(j<0)j=a.length}else j=a.reduce((m,x,k)=>x.fav?k+1:m,0);a.splice(j,0,c);go()}
 /* ---- Glisser-déposer boutique → hangar (Pointer Events ; tactile : appui long ~0,2 s pour ne pas bloquer le défilement) ---- */
 let DRG=null,DRGEND=0,CLK=null;
 const recent=()=>Date.now()-DRGEND<400;
-function shopClick(k){if(!recent())addCat(k)}
+function shopClick(k){if(!recent())openM('p',k)}
 function hClick(id){if(recent())return;if(CLK&&CLK.id===id){clearTimeout(CLK.t);CLK=null;toggleFav(id);return}CLK={id,t:setTimeout(()=>{CLK=null;openM('c',id)},260)}}   // simple clic : fiche ; double clic : favori
 document.addEventListener('touchmove',e=>{if(DRG&&DRG.on)e.preventDefault()},{passive:false});
 document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('[data-drag]');if(!el||DRG||(e.pointerType==='mouse'&&e.button!==0))return;
@@ -236,7 +245,7 @@ function dragLoop(){if(!DRG||!DRG.on)return;if(DRG.y<80)scrollBy(0,-14);else if(
 function dragEnd(drop){const d=DRG;if(!d)return;DRG=null;clearTimeout(d.t);cancelAnimationFrame(d.raf);if(d.g)d.g.remove();d.el.classList.remove('drag-src');document.body.classList.remove('dragging');document.querySelectorAll('.drop-on').forEach(e=>e.classList.remove('drop-on'));
 if(d.on)DRGEND=Date.now();
 if(drop&&d.on){const t=document.elementFromPoint(d.x,d.y);if(!t)return;const tile=t.closest('[data-from="h"]'),hz=t.closest('#hangarZone');
-if(d.from==='s'){if(tile)addCat(d.key,+tile.dataset.drag);else if(hz)addCat(d.key)}
+if(d.from==='s'){if(tile)addCat(d.key,+tile.dataset.drag,true);else if(hz)addCat(d.key,null,true)}
 else if(tile&&tile!==d.el)moveChar(+d.key,+tile.dataset.drag);else if(!tile&&hz)moveChar(+d.key,null);else if(!tile&&t.closest('#shopZone'))delChar(+d.key)}}
 const dTagBtn=(t,v,l,col)=>`<button class="btn bev text-xs" data-t="${t}" data-v="${v}" ${D[t]===v?'style="background:#ff8a1f;color:#070e3a" ':''}onclick="dTag('${t}','${v}')">${col?`<span style="color:${col}">●</span> `:''}${l}</button>`;
 function dTag(t,v){D[t]=D[t]===v?'':v;document.querySelectorAll(`#dtags [data-t="${t}"]`).forEach(b=>{const on=b.dataset.v===D[t];b.style.background=on?'#ff8a1f':'';b.style.color=on?'#070e3a':''})}
@@ -330,6 +339,10 @@ function bpLvl(v){S.bpl=Math.max(0,Math.min(BP_MAX,v));go()}
 function bpStd(n,ck){S.bps=ck?n:0;go()}
 const rowBoth=(l,v,b)=>`<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${fmt(v[0])} ${CR} · ${fmt(v[1])} ${AM}</span></div>`;
 const bpLine=(l,v,b)=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
+const parts=v=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return p.join(' · ')};
+/* Ligne de dépense cochable : décochée = exclue du pronostic (montant barré) */
+const expRow=(l,v,on,k)=>`<div class="flex justify-between gap-2 items-center ${on?'':'opacity-50'}"><label class="flex items-center gap-2"><input type="checkbox" ${on?'checked':''} onchange="incTog('${k}',this.checked)"><span>${l}</span></label><span class="text-right ${on?'':'line-through'}">${parts(v)}</span></div>`;
+function incTog(k,v){S.inc[k]=v?1:0;save();upd3()}
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
 const L=$('#lgr');if(L)L.innerHTML=kv('Temps estimé',c.dT===null?'—':c.dT+' j')+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
 const cp=$('#crp');if(cp)cp.innerHTML=`<b class="text-mand">${fmt(crDay())} ${CR} / j</b>`;
@@ -341,15 +354,17 @@ const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${p
 const ICO=[CR,AM,HC];
 /* Temps de farm par ressource, côte à côte (affiché en fin de carte) */
 const dd=i=>c.need[i]===0?'—':c.dR[i]===null?'> 10 ans':`${c.dR[i]} j`;
-const dRow=`<div class="text-xs">Temps de farm</div><div class="flex justify-around gap-2 text-center">${[0,1,2].map(i=>`<div class="flex-1"><b class="text-mand">${dd(i)}</b><div>${ICO[i]}</div></div>`).join('')}</div>`;
+const dRow=`<div class="text-xs">Temps de jeu estimé/ressources</div><div class="flex justify-around gap-2 text-center">${[0,1,2].map(i=>`<div class="flex-1"><b class="text-mand">${dd(i)}</b><div>${ICO[i]}</div></div>`).join('')}</div>`;
 /* Excédent estimé : uniquement les ressources en surplus (> 0), affiché si la simulation aboutit */
 const ex=c.surplus.map((x,i)=>x>0?fmt(x)+' '+ICO[i]:null).filter(Boolean);
 const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 text-emerald-400 font-bold"><span>Excédent estimé</span><span class="text-right">${ex.join(' · ')}</span></div>`:'';
 const hasRes=!!(c.res[0]||c.res[1]||c.res[2]);
-e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)
-+(hasRes?sep+row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1):'')+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine+sep
-+kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)
+const det=(hasRes?row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1)+sep:'')
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine;
+e.innerHTML=expRow('Dépenses Chars',c.dc,c.inc.ch,'ch')+expRow('Dépenses Opérateurs',c.dop,c.inc.op,'op')+row('Dépenses Total',c.need,1)
++`<button class="btn bev w-full text-xs" onclick="toggleT('f')">${UI.t.f?'▲ Masquer les détails':'▼ Détails Estimations'}</button>`
++(UI.t.f?`<div class="space-y-1 border-t border-mag/40 pt-2">${det}</div>`:'')
++sep+kv('Temps de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)
 +sep+dRow}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';
@@ -362,7 +377,7 @@ function bpSetHtml(){const ms=nextReset(Date.now())-Date.now(),dd=Math.floor(ms/
 return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>
 <p class="text-xs opacity-70">Durée fixe de 30 jours, réinitialisation à 9h (heure serveur, UTC+0). Indiquez le temps restant avant la fin du Battle Pass en cours pour synchroniser le site.</p>
 <div class="flex gap-2"><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Jours restants</span><input id="bpcD" type="number" step="1" min="0" max="30" value="${dd}" style="width:5rem" onchange="bpcSetRemaining()"></label><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Heures restantes</span><input id="bpcH" type="number" step="1" min="0" max="23" value="${hh}" style="width:5rem" onchange="bpcSetRemaining()"></label></div></section>`}
-function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Affichage</h2><div class="text-xs">Icônes par ligne</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
+function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Icônes Panneau "Mon Hangar"</h2><div class="text-xs">Icônes par ligne</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
 function setCols(n){S.cols=n;go()}
 function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${dispHtml()}${bpSetHtml()}${ioHtml()}`}
 function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
@@ -370,5 +385,7 @@ function pickFile(acc,cb){const i=document.createElement('input');i.type='file';
 async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}
 async function impZip(f){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
 o.chars=await Promise.all(o.chars.map(async c=>{const{imgFile,...r}=c;if(imgFile&&z.file(imgFile)){return{...r,img:'data:image/jpeg;base64,'+await z.file(imgFile).async('base64')}}return{...r,img:r.img||null}}));
-S={...def(),...o};fixS();fixRes();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
+S={...def(),...o};fixS();fixRes();fixInc();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
 render();
+/* ---- Cache des images : service worker (sw.js), nécessite HTTPS (GitHub Pages) ---- */
+if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));

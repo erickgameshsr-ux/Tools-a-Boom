@@ -96,9 +96,12 @@ let D=null;
 for(let t=0;t<=MAXD;t++){
 const bpT=sim.cumArr[t];
 if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]){D=t;break}}
-const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bp=sim.cumArr[Dd],k=sim.kArr[Dd],farm=b*Dd,dT=daysToTarget();
-const bpNoVip=simNoVip.cumArr[Dd],bpVip=[bp[0]-bpNoVip[0],bp[1]-bpNoVip[1],bp[2]-bpNoVip[2]];
-return{need,dc:h.T,dop,op,lg,bp,bpVip,k,D,Dd,b,farm,tot:[farm+bp[0]+lg[0]+op[0],bp[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
+const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpF2P=simNoVip.cumArr[Dd],k=sim.kArr[Dd],farm=b*Dd,dT=daysToTarget();
+const bpVip=[bpFull[0]-bpF2P[0],bpFull[1]-bpF2P[1],bpFull[2]-bpF2P[2]];
+// bp = voie F2P uniquement (affichée sur la ligne "Battle Pass") ; bpVip = tout le surplus dû au VIP (voie haute doublée,
+// bonus immédiats VIP niv.2, paliers supplémentaires via missions VIP et bonus d'XP). bp+bpVip=bpFull, donc tot (basé sur
+// bpFull) reste toujours strictement égal à la somme des lignes affichées (Crédits journalier + Battle Pass + Battle Pass VIP + Ligue + Opérateur).
+return{need,dc:h.T,dop,op,lg,bp:bpF2P,bpVip,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -263,7 +266,7 @@ $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip[0]||c.bpVip[1]||c.bpVip[2])?bpLine('Battle Pass VIP',c.bpVip):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip[0]||c.bpVip[1])?row('Battle Pass VIP',c.bpVip):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

@@ -6,10 +6,12 @@ const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>docu
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
 const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
+const fixS=()=>S.chars.forEach(c=>{if(c.fav===undefined)c.fav=1});fixS();   // chars créés avant les favoris : considérés comme favoris
+const newId=()=>{let i=Date.now();while(S.chars.some(c=>c.id===i))i++;return i};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
 let D={lvl:1,mods:[0,0,0,0,0],img:null};
-let UI={m:null,t:{h:false,o:false,l:false,s:false}};   // état d'affichage (fenêtre ouverte), non sauvegardé
+let UI={m:null,t:{h:false,o:false,l:false,s:false,a:false}};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
 const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
@@ -20,7 +22,7 @@ const boxes=(L,lvl,ck,cb,p)=>`<div class="grid gap-1" style="grid-template-colum
 const dBoxes=()=>boxes(MODS,D.lvl,D.mods,i=>`D.mods[${i}]=+this.checked`,'M');
 
 /* ---- Calculs de base ---- */
-function hangar(){let L=Z,M=Z;S.chars.forEach(c=>{L=add(L,sumP(LEVEL_COSTS.slice(c.lvl-1)));MODS.forEach((m,i)=>{if(!c.mods[i])M=add(M,[m[1],0])})});return{L,M,T:add(L,M)}}
+function hangar(){let L=Z,M=Z;S.chars.forEach(c=>{if(!c.fav)return;L=add(L,sumP(LEVEL_COSTS.slice(c.lvl-1)));MODS.forEach((m,i)=>{if(!c.mods[i])M=add(M,[m[1],0])})});return{L,M,T:add(L,M)}}
 const owned=()=>Object.keys(OPS).filter(k=>S.ops[k].own);
 const tgtOf=p=>Math.max(p.tgt||30,p.lvl);
 const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
@@ -111,17 +113,21 @@ const catOf=c=>c.key&&CHARS.find(x=>x[0]===c.key);
 const cName=c=>{const x=catOf(c);return x?(x[1]||x[0]):c.name};
 const cImg=c=>{const x=catOf(c);return c.img||(x?`assets/${x[0]}.webp`:null)};
 const GRID=()=>`<div class="grid gap-3" style="grid-template-columns:repeat(${S.cols||3},minmax(0,1fr))">`;
+const STAR=f=>`<svg viewBox="0 0 24 24" class="w-5 h-5" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>`;
 const TRASH='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
-const bub=(c,a='',lvl=1,tag='button')=>{const im=cImg(c);return `<${tag} class="bubble${im?' has-img':''}" ${a}>${im?`<i class="art" style="background-image:url(${im})"></i>`:''}<b>${esc(cName(c))}</b>${lvl?`<small>Niv. ${c.lvl}</small>`:''}</${tag}>`};
+const bub=(c,a='',lvl=1,tag='button')=>{const im=cImg(c);return `<${tag} class="bubble${im?' has-img':''}" ${a}>${im?`<i class="art" style="background-image:url(${im})"></i>`:''}<b>${esc(cName(c))}</b>${lvl?`<small>Niv. ${c.lvl}</small>`:''}${lvl&&c.fav&&tag==='button'?'<span class="fav-b">★</span>':''}</${tag}>`};
 function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
-<section id="hangarZone" class="card bev p-3">${GRID()}${S.chars.map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char"><span class="pl">+</span></button></div></section>`
-+`<section id="shopZone" class="card bev p-3" style="min-height:4rem">${GRID()}${shop.map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`}
-function addCat(key){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;S.chars.push({id:Date.now(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null});go()}
+<section id="hangarZone" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Mon Hangar</h2>${GRID()}${S.chars.map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}<button class="bubble add" onclick="toggleT('a')" aria-label="Ajouter un char"><span class="pl">+</span></button></div></section>`
++(UI.t.a?addForm():'')
++`<section id="shopZone" class="card bev p-3 space-y-2" style="min-height:4rem"><h2 class="text-mand text-sm">Chars</h2>${GRID()}${shop.map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`}
+function addCat(key,to){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);go()}
+function moveChar(id,to){const a=S.chars,i=a.findIndex(c=>c.id===id),ti=to==null?-1:a.findIndex(c=>c.id===to);if(i<0)return;const[c]=a.splice(i,1);a.splice(ti<0?a.length:ti,0,c);go()}
+function toggleFav(id){const a=S.chars,i=a.findIndex(c=>c.id===id);if(i<0)return;const c=a[i];c.fav=c.fav?0:1;a.splice(i,1);let j;if(c.fav){j=a.findIndex(x=>!x.fav);if(j<0)j=a.length}else j=a.reduce((m,x,k)=>x.fav?k+1:m,0);a.splice(j,0,c);go()}
 /* ---- Glisser-déposer boutique → hangar (Pointer Events ; tactile : appui long ~0,2 s pour ne pas bloquer le défilement) ---- */
-let DRG=null,DRGEND=0;
+let DRG=null,DRGEND=0,CLK=null;
 const recent=()=>Date.now()-DRGEND<400;
 function shopClick(k){if(!recent())addCat(k)}
-function hClick(id){if(!recent())openM('c',id)}
+function hClick(id){if(recent())return;if(CLK&&CLK.id===id){clearTimeout(CLK.t);CLK=null;toggleFav(id);return}CLK={id,t:setTimeout(()=>{CLK=null;openM('c',id)},260)}}   // simple clic : fiche ; double clic : favori
 document.addEventListener('touchmove',e=>{if(DRG&&DRG.on)e.preventDefault()},{passive:false});
 document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('[data-drag]');if(!el||DRG||(e.pointerType==='mouse'&&e.button!==0))return;
 DRG={el,key:el.dataset.drag,from:el.dataset.from,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,on:false,id:e.pointerId,touch:e.pointerType!=='mouse',g:null,raf:0,t:0};
@@ -132,11 +138,13 @@ dragMove()});
 document.addEventListener('pointerup',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(true)});
 document.addEventListener('pointercancel',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(false)});
 function dragStart(){if(!DRG||DRG.on)return;DRG.on=true;clearTimeout(DRG.t);const g=DRG.el.cloneNode(true);g.removeAttribute('data-drag');g.classList.add('drag-ghost');const r=DRG.el.getBoundingClientRect();DRG.w=r.width;DRG.h=r.height;g.style.width=r.width+'px';g.style.height=r.height+'px';document.body.appendChild(g);DRG.g=g;DRG.el.classList.add('drag-src');document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(15);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
-function dragMove(){if(!DRG||!DRG.g)return;DRG.g.style.transform=`translate3d(${DRG.x-DRG.w/2}px,${DRG.y-DRG.h/2-(DRG.touch?40:0)}px,0)`;const zid=DRG.from==='s'?'#hangarZone':'#shopZone',t=document.elementFromPoint(DRG.x,DRG.y),z=$(zid);if(z)z.classList.toggle('drop-on',!!(t&&t.closest(zid)))}
+function dragMove(){if(!DRG||!DRG.g)return;DRG.g.style.transform=`translate3d(${DRG.x-DRG.w/2}px,${DRG.y-DRG.h/2-(DRG.touch?40:0)}px,0)`;document.querySelectorAll('.drop-on').forEach(e=>e.classList.remove('drop-on'));const t=document.elementFromPoint(DRG.x,DRG.y);if(!t)return;const tile=t.closest('[data-from="h"]'),hz=t.closest('#hangarZone'),sz=t.closest('#shopZone');const z=DRG.from==='s'?(tile||hz):(tile&&tile!==DRG.el)?tile:(!tile&&hz)?hz:(sz||null);if(z)z.classList.add('drop-on')}
 function dragLoop(){if(!DRG||!DRG.on)return;if(DRG.y<80)scrollBy(0,-14);else if(DRG.y>innerHeight-120)scrollBy(0,14);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
 function dragEnd(drop){const d=DRG;if(!d)return;DRG=null;clearTimeout(d.t);cancelAnimationFrame(d.raf);if(d.g)d.g.remove();d.el.classList.remove('drag-src');document.body.classList.remove('dragging');document.querySelectorAll('.drop-on').forEach(e=>e.classList.remove('drop-on'));
 if(d.on)DRGEND=Date.now();
-if(drop&&d.on){const t=document.elementFromPoint(d.x,d.y);if(d.from==='s'){if(t&&t.closest('#hangarZone'))addCat(d.key)}else if(t&&t.closest('#shopZone'))delChar(+d.key)}}
+if(drop&&d.on){const t=document.elementFromPoint(d.x,d.y);if(!t)return;const tile=t.closest('[data-from="h"]'),hz=t.closest('#hangarZone');
+if(d.from==='s'){if(tile)addCat(d.key,+tile.dataset.drag);else if(hz)addCat(d.key)}
+else if(tile&&tile!==d.el)moveChar(+d.key,+tile.dataset.drag);else if(!tile&&hz)moveChar(+d.key,null);else if(!tile&&t.closest('#shopZone'))delChar(+d.key)}}
 function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
 <button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
 function previewImg(d){return `<img class="crop-16x10" src="${d}" alt="">`}
@@ -147,10 +155,10 @@ function pickImg(cb){const i=document.createElement('input');i.type='file';i.acc
 i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
 const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2"><div class="flex justify-center"><div class="relative" style="width:7rem">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="Retirer l'image">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="Supprimer ce char">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+return `<section class="card bev p-3 space-y-2 relative"><button class="absolute ${c.fav?'text-mand':'text-mag'}" style="top:10px;right:10px" onclick="toggleFav(${c.id})" aria-label="Favori" aria-pressed="${!!c.fav}">${STAR(c.fav)}</button><div class="flex justify-center"><div class="relative" style="width:7rem">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="Retirer l'image">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="Supprimer ce char">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
-function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;go()}
+function addChar(){S.chars.push({id:newId(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img,fav:0});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;UI.t.a=false;go()}
 function cLvl(id,v){const c=byId(id);c.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])c.mods[i]=0});go()}
 function cMod(id,i,v){byId(id).mods[i]=+v;go()}
 function rmImg(id){if(confirm(byId(id)?.key?"Rétablir l'image d'origine ?":'Supprimer cette image ?')){byId(id).img=null;go()}}
@@ -237,5 +245,5 @@ function pickFile(acc,cb){const i=document.createElement('input');i.type='file';
 async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}
 async function impZip(f){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
 o.chars=await Promise.all(o.chars.map(async c=>{const{imgFile,...r}=c;if(imgFile&&z.file(imgFile)){return{...r,img:'data:image/jpeg;base64,'+await z.file(imgFile).async('base64')}}return{...r,img:r.img||null}}));
-S={...def(),...o};go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
+S={...def(),...o};fixS();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
 render();

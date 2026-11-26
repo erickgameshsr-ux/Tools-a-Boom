@@ -4,7 +4,7 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -110,11 +110,12 @@ m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-
 const catOf=c=>c.key&&CHARS.find(x=>x[0]===c.key);
 const cName=c=>{const x=catOf(c);return x?(x[1]||x[0]):c.name};
 const cImg=c=>{const x=catOf(c);return c.img||(x?`assets/${x[0]}.webp`:null)};
+const GRID=()=>`<div class="grid gap-3" style="grid-template-columns:repeat(${S.cols||3},minmax(0,1fr))">`;
 const TRASH='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
 const bub=(c,a='',lvl=1,tag='button')=>{const im=cImg(c);return `<${tag} class="bubble${im?' has-img':''}" ${a}>${im?`<i class="art" style="background-image:url(${im})"></i>`:''}<b>${esc(cName(c))}</b>${lvl?`<small>Niv. ${c.lvl}</small>`:''}</${tag}>`};
 function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
-<section id="hangarZone" class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`
-+`<section id="shopZone" class="card bev p-3" style="min-height:4rem"><div class="grid grid-cols-4 gap-3 justify-items-center">${shop.map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`}
+<section id="hangarZone" class="card bev p-3">${GRID()}${S.chars.map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char"><span class="pl">+</span></button></div></section>`
++`<section id="shopZone" class="card bev p-3" style="min-height:4rem">${GRID()}${shop.map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`}
 function addCat(key){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;S.chars.push({id:Date.now(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null});go()}
 /* ---- Glisser-déposer boutique → hangar (Pointer Events ; tactile : appui long ~0,2 s pour ne pas bloquer le défilement) ---- */
 let DRG=null,DRGEND=0;
@@ -130,8 +131,8 @@ if(!DRG.on){const d=Math.hypot(DRG.x-DRG.x0,DRG.y-DRG.y0);if(!DRG.touch&&d>5)dra
 dragMove()});
 document.addEventListener('pointerup',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(true)});
 document.addEventListener('pointercancel',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(false)});
-function dragStart(){if(!DRG||DRG.on)return;DRG.on=true;clearTimeout(DRG.t);const g=DRG.el.cloneNode(true);g.removeAttribute('data-drag');g.classList.add('drag-ghost');document.body.appendChild(g);DRG.g=g;DRG.el.classList.add('drag-src');document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(15);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
-function dragMove(){if(!DRG||!DRG.g)return;DRG.g.style.transform=`translate3d(${DRG.x-38}px,${DRG.y-38-(DRG.touch?40:0)}px,0)`;const zid=DRG.from==='s'?'#hangarZone':'#shopZone',t=document.elementFromPoint(DRG.x,DRG.y),z=$(zid);if(z)z.classList.toggle('drop-on',!!(t&&t.closest(zid)))}
+function dragStart(){if(!DRG||DRG.on)return;DRG.on=true;clearTimeout(DRG.t);const g=DRG.el.cloneNode(true);g.removeAttribute('data-drag');g.classList.add('drag-ghost');const r=DRG.el.getBoundingClientRect();DRG.w=r.width;DRG.h=r.height;g.style.width=r.width+'px';g.style.height=r.height+'px';document.body.appendChild(g);DRG.g=g;DRG.el.classList.add('drag-src');document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(15);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
+function dragMove(){if(!DRG||!DRG.g)return;DRG.g.style.transform=`translate3d(${DRG.x-DRG.w/2}px,${DRG.y-DRG.h/2-(DRG.touch?40:0)}px,0)`;const zid=DRG.from==='s'?'#hangarZone':'#shopZone',t=document.elementFromPoint(DRG.x,DRG.y),z=$(zid);if(z)z.classList.toggle('drop-on',!!(t&&t.closest(zid)))}
 function dragLoop(){if(!DRG||!DRG.on)return;if(DRG.y<80)scrollBy(0,-14);else if(DRG.y>innerHeight-120)scrollBy(0,14);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
 function dragEnd(drop){const d=DRG;if(!d)return;DRG=null;clearTimeout(d.t);cancelAnimationFrame(d.raf);if(d.g)d.g.remove();d.el.classList.remove('drag-src');document.body.classList.remove('dragging');document.querySelectorAll('.drop-on').forEach(e=>e.classList.remove('drop-on'));
 if(d.on)DRGEND=Date.now();
@@ -146,7 +147,7 @@ function pickImg(cb){const i=document.createElement('input');i.type='file';i.acc
 i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
 const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2"><div class="flex justify-center"><div class="relative">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="Retirer l'image">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="Supprimer ce char">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+return `<section class="card bev p-3 space-y-2"><div class="flex justify-center"><div class="relative" style="width:7rem">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="Retirer l'image">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="Supprimer ce char">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
 function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;go()}
@@ -228,7 +229,9 @@ function bpSetHtml(){const inp=(k,l,mn,mx)=>`<label class="text-xs flex justify-
 return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>${inp('dur','Durée d\'un Battle Pass (jours)',1,365)}${inp('day','Jour de réinitialisation (du mois)',1,28)}${inp('utcHour','Heure de réinitialisation (UTC+0)',0,23)}<button class="btn bev text-xs" onclick="bpcReset()">Rétablir les valeurs par défaut</button></section>`}
 function bpcIn(k,v,mn,mx){const n=Math.round(+v);if(v===''||!(n>=mn))return;S.bpc={...BP_RESET,...S.bpc,[k]:Math.min(mx,n)};go()}
 function bpcReset(){S.bpc={...BP_RESET};go()}
-function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${bpSetHtml()}${ioHtml()}`}
+function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Affichage</h2><div class="text-xs">Icônes par ligne</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
+function setCols(n){S.cols=n;go()}
+function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${dispHtml()}${bpSetHtml()}${ioHtml()}`}
 function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 function pickFile(acc,cb){const i=document.createElement('input');i.type='file';i.accept=acc;i.style.display='none';document.body.appendChild(i);i.onchange=()=>{const f=i.files[0];i.remove();if(f)cb(f)};i.click()}
 async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}

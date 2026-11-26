@@ -7,13 +7,13 @@ input[type=range]{accent-color:#ff8a1f;width:100%}
 input[type=checkbox]{accent-color:#b02bd6;width:1.2rem;height:1.2rem}
 input[type=number],input[type=text],textarea{background:#070e3a;border:1px solid #b02bd6;padding:.4rem;width:100%;color:#fff}
 button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
-.bubble{--fr:5px;position:relative;isolation:isolate;width:76px;height:76px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:0;padding:4px;overflow:hidden;cursor:pointer}
-.bubble::before{content:"";position:absolute;inset:var(--fr);background:linear-gradient(160deg,#16288a,#0d1857);z-index:-2}
+.bubble{--fr:6.5cqw;container-type:inline-size;position:relative;isolation:isolate;width:100%;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:0;padding:4px;overflow:hidden;cursor:pointer}
+.bubble::before{content:"";position:absolute;inset:var(--fr);background:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px) 0 0/12.5% 12.5%,linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/12.5% 12.5%,linear-gradient(160deg,#26304d,#171e33);z-index:-2}
 .bubble .art{position:absolute;inset:var(--fr);background-position:center;background-repeat:no-repeat;background-size:contain;z-index:-1}
 .bubble::after{content:"";position:absolute;inset:0;background:url(assets/frametank.png) center/100% 100% no-repeat;pointer-events:none;z-index:1}
 .bubble>b,.bubble>small{position:relative;z-index:2}
-.bubble b{font-family:Orbitron,Rajdhani,sans-serif;font-size:10px;text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bubble small{font-size:11px;color:#ff8a1f;font-weight:700}
+.bubble b{font-family:Orbitron,Rajdhani,sans-serif;font-size:clamp(7px,13cqw,28px);text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bubble small{font-size:clamp(7px,14cqw,30px);color:#ff8a1f;font-weight:700}
 .bubble.add{font-size:38px;color:#ff8a1f;font-weight:700;line-height:1}
 #modal{display:none;position:fixed;inset:0;background:rgba(7,14,58,.88);z-index:50;align-items:center;justify-content:center;overflow-y:auto;padding:max(1rem,env(safe-area-inset-top)) 1rem 1rem}
 #modal.open{display:flex}
@@ -28,8 +28,8 @@ button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .cur-ic{height:1em;width:auto;display:inline-block;vertical-align:-.15em}
 .crop-16x10{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;margin:0}
 .bubble.has-img{justify-content:flex-end;padding-bottom:9px;text-shadow:0 1px 3px #000,0 0 5px rgba(0,0,0,.9)}
-.bubble.has-img b{font-size:8px}
-.bubble.has-img small{font-size:8px}
+.bubble.has-img b{font-size:clamp(6px,10.5cqw,24px)}
+.bubble.has-img small{font-size:clamp(6px,10.5cqw,24px)}
 .bubble b{color:#fff;font-weight:700;text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.9)}
 .bubble small{text-shadow:0 1px 3px #000,0 0 6px rgba(0,0,0,.9)}
 .bubble:not(.has-img){padding-top:10px}
@@ -56,3 +56,4 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .drag-src{opacity:.35}
 .drag-ghost{position:fixed;left:0;top:0;z-index:60;pointer-events:none;opacity:.92}
 .drop-on{outline:2px dashed #ff8a1f;outline-offset:-4px}
+.bubble .pl{font-size:50cqw;line-height:1}

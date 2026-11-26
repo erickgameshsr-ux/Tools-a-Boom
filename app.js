@@ -106,8 +106,31 @@ let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=dow
 m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
-function vHangar0(){const h=hangar();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
-<section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>`<button class="bubble${c.img?' has-img':''}" onclick="openM('c',${c.id})" style="${c.img?`background-image:url(${c.img});background-size:cover;background-position:center`:''}"><b>${esc(c.name)}</b><small>Niv. ${c.lvl}</small></button>`).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`}
+/* ---- Chars de la boutique (masquée) : nom/image dérivés de CHARS via c.key ---- */
+const catOf=c=>c.key&&CHARS.find(x=>x[0]===c.key);
+const cName=c=>{const x=catOf(c);return x?(x[1]||x[0]):c.name};
+const cImg=c=>{const x=catOf(c);return x?`assets/${x[0]}.webp`:c.img};
+const bub=(c,a='',lvl=1,tag='button')=>{const im=cImg(c);return `<${tag} class="bubble${im?' has-img':''}"${im?` style="background-image:url(${im});background-size:cover;background-position:center"`:''} ${a}><b>${esc(cName(c))}</b>${lvl?`<small>Niv. ${c.lvl}</small>`:''}</${tag}>`};
+function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
+<section id="hangarZone" class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${S.chars.map(c=>bub(c,`onclick="openM('c',${c.id})"`)).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char">+</button></div></section>`
++(shop.length?`<section class="card bev p-3"><div class="grid grid-cols-4 gap-3 justify-items-center">${shop.map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" oncontextmenu="return false"`,0)).join('')}</div></section>`:'')}
+function addCat(key){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;S.chars.push({id:Date.now(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null});go()}
+/* ---- Glisser-déposer boutique → hangar (Pointer Events ; tactile : appui long ~0,2 s pour ne pas bloquer le défilement) ---- */
+let DRG=null;
+document.addEventListener('touchmove',e=>{if(DRG&&DRG.on)e.preventDefault()},{passive:false});
+document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('[data-drag]');if(!el||DRG||(e.pointerType==='mouse'&&e.button!==0))return;
+DRG={el,key:el.dataset.drag,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,on:false,id:e.pointerId,touch:e.pointerType!=='mouse',g:null,raf:0,t:0};
+if(DRG.touch)DRG.t=setTimeout(dragStart,220)});
+document.addEventListener('pointermove',e=>{if(!DRG||e.pointerId!==DRG.id)return;DRG.x=e.clientX;DRG.y=e.clientY;
+if(!DRG.on){const d=Math.hypot(DRG.x-DRG.x0,DRG.y-DRG.y0);if(!DRG.touch&&d>5)dragStart();else if(DRG.touch&&d>10)dragEnd(false);return}
+dragMove()});
+document.addEventListener('pointerup',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(true)});
+document.addEventListener('pointercancel',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(false)});
+function dragStart(){if(!DRG||DRG.on)return;DRG.on=true;clearTimeout(DRG.t);const g=DRG.el.cloneNode(true);g.removeAttribute('data-drag');g.classList.add('drag-ghost');document.body.appendChild(g);DRG.g=g;DRG.el.classList.add('drag-src');document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(15);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
+function dragMove(){if(!DRG||!DRG.g)return;DRG.g.style.transform=`translate3d(${DRG.x-38}px,${DRG.y-38-(DRG.touch?40:0)}px,0)`;const t=document.elementFromPoint(DRG.x,DRG.y),z=$('#hangarZone');if(z)z.classList.toggle('drop-on',!!(t&&t.closest('#hangarZone')))}
+function dragLoop(){if(!DRG||!DRG.on)return;if(DRG.y<80)scrollBy(0,-14);else if(DRG.y>innerHeight-120)scrollBy(0,14);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
+function dragEnd(drop){const d=DRG;if(!d)return;DRG=null;clearTimeout(d.t);cancelAnimationFrame(d.raf);if(d.g)d.g.remove();d.el.classList.remove('drag-src');document.body.classList.remove('dragging');const z=$('#hangarZone');if(z)z.classList.remove('drop-on');
+if(drop&&d.on){const t=document.elementFromPoint(d.x,d.y);if(t&&t.closest('#hangarZone'))addCat(d.key)}}
 function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
 <button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
 function previewImg(d){return `<img class="crop-16x10" src="${d}" alt="">`}
@@ -118,14 +141,14 @@ function pickImg(cb){const i=document.createElement('input');i.type='file';i.acc
 i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
 const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2">${c.img?`<div class="relative">${previewImg(c.img)}<button class="absolute top-1 right-1 text-mag font-bold px-2" onclick="rmImg(${c.id})">✕</button></div>`:`<div class="flex justify-start"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(c.name)}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+return `<section class="card bev p-3 space-y-2"><div class="flex justify-center">${bub(c,'',1,'div')}</div>${c.key?'':`<div class="flex justify-center gap-2"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button>${c.img?`<button class="btn bev text-xs" onclick="rmImg(${c.id})">Supprimer l'image</button>`:''}</div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag font-bold px-2">✕</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
 function addChar(){S.chars.push({id:Date.now(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img});D={lvl:1,mods:[0,0,0,0,0],img:null};UI.m=null;go()}
 function cLvl(id,v){const c=byId(id);c.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])c.mods[i]=0});go()}
 function cMod(id,i,v){byId(id).mods[i]=+v;go()}
 function rmImg(id){if(confirm('Supprimer cette image ?')){byId(id).img=null;go()}}
-function delChar(id){if(confirm('Supprimer ce char ?')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
+function delChar(id){if(confirm(byId(id)?.key?'Retirer ce char du hangar ?':'Supprimer ce char ?')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
 
 /* ---- Onglet 2 : Opérateurs ---- */
 function opSum(){return owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0})}

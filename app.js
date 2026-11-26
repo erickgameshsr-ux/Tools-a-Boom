@@ -212,4 +212,163 @@ function fOpen(k){UI.f[k].o=!UI.f[k].o;render()}
 function fTog(k,t,v){const a=UI.f[k][t],i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);render()}
 function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
 <section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Mon Hangar</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
-+`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} Chars</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>
++`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} Chars</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="Créer un char"><span class="pl">+</span><b>Créer un char</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
+function addCat(key,to){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);go()}
+function moveChar(id,to){const a=S.chars,i=a.findIndex(c=>c.id===id),ti=to==null?-1:a.findIndex(c=>c.id===to);if(i<0)return;const[c]=a.splice(i,1);a.splice(ti<0?a.length:ti,0,c);go()}
+function toggleFav(id){const a=S.chars,i=a.findIndex(c=>c.id===id);if(i<0)return;const c=a[i];c.fav=c.fav?0:1;a.splice(i,1);let j;if(c.fav){j=a.findIndex(x=>!x.fav);if(j<0)j=a.length}else j=a.reduce((m,x,k)=>x.fav?k+1:m,0);a.splice(j,0,c);go()}
+/* ---- Glisser-déposer boutique → hangar (Pointer Events ; tactile : appui long ~0,2 s pour ne pas bloquer le défilement) ---- */
+let DRG=null,DRGEND=0,CLK=null;
+const recent=()=>Date.now()-DRGEND<400;
+function shopClick(k){if(!recent())addCat(k)}
+function hClick(id){if(recent())return;if(CLK&&CLK.id===id){clearTimeout(CLK.t);CLK=null;toggleFav(id);return}CLK={id,t:setTimeout(()=>{CLK=null;openM('c',id)},260)}}   // simple clic : fiche ; double clic : favori
+document.addEventListener('touchmove',e=>{if(DRG&&DRG.on)e.preventDefault()},{passive:false});
+document.addEventListener('pointerdown',e=>{const el=e.target.closest&&e.target.closest('[data-drag]');if(!el||DRG||(e.pointerType==='mouse'&&e.button!==0))return;
+DRG={el,key:el.dataset.drag,from:el.dataset.from,x0:e.clientX,y0:e.clientY,x:e.clientX,y:e.clientY,on:false,id:e.pointerId,touch:e.pointerType!=='mouse',g:null,raf:0,t:0};
+if(DRG.touch)DRG.t=setTimeout(dragStart,220)});
+document.addEventListener('pointermove',e=>{if(!DRG||e.pointerId!==DRG.id)return;DRG.x=e.clientX;DRG.y=e.clientY;
+if(!DRG.on){const d=Math.hypot(DRG.x-DRG.x0,DRG.y-DRG.y0);if(!DRG.touch&&d>5)dragStart();else if(DRG.touch&&d>10)dragEnd(false);return}
+dragMove()});
+document.addEventListener('pointerup',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(true)});
+document.addEventListener('pointercancel',e=>{if(DRG&&e.pointerId===DRG.id)dragEnd(false)});
+function dragStart(){if(!DRG||DRG.on)return;DRG.on=true;clearTimeout(DRG.t);const g=DRG.el.cloneNode(true);g.removeAttribute('data-drag');g.classList.add('drag-ghost');const r=DRG.el.getBoundingClientRect();DRG.w=r.width;DRG.h=r.height;g.style.width=r.width+'px';g.style.height=r.height+'px';document.body.appendChild(g);DRG.g=g;DRG.el.classList.add('drag-src');document.body.classList.add('dragging');if(navigator.vibrate)navigator.vibrate(15);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
+function dragMove(){if(!DRG||!DRG.g)return;DRG.g.style.transform=`translate3d(${DRG.x-DRG.w/2}px,${DRG.y-DRG.h/2-(DRG.touch?40:0)}px,0)`;document.querySelectorAll('.drop-on').forEach(e=>e.classList.remove('drop-on'));const t=document.elementFromPoint(DRG.x,DRG.y);if(!t)return;const tile=t.closest('[data-from="h"]'),hz=t.closest('#hangarZone'),sz=t.closest('#shopZone');const z=DRG.from==='s'?(tile||hz):(tile&&tile!==DRG.el)?tile:(!tile&&hz)?hz:(sz||null);if(z)z.classList.add('drop-on')}
+function dragLoop(){if(!DRG||!DRG.on)return;if(DRG.y<80)scrollBy(0,-14);else if(DRG.y>innerHeight-120)scrollBy(0,14);dragMove();DRG.raf=requestAnimationFrame(dragLoop)}
+function dragEnd(drop){const d=DRG;if(!d)return;DRG=null;clearTimeout(d.t);cancelAnimationFrame(d.raf);if(d.g)d.g.remove();d.el.classList.remove('drag-src');document.body.classList.remove('dragging');document.querySelectorAll('.drop-on').forEach(e=>e.classList.remove('drop-on'));
+if(d.on)DRGEND=Date.now();
+if(drop&&d.on){const t=document.elementFromPoint(d.x,d.y);if(!t)return;const tile=t.closest('[data-from="h"]'),hz=t.closest('#hangarZone');
+if(d.from==='s'){if(tile)addCat(d.key,+tile.dataset.drag);else if(hz)addCat(d.key)}
+else if(tile&&tile!==d.el)moveChar(+d.key,+tile.dataset.drag);else if(!tile&&hz)moveChar(+d.key,null);else if(!tile&&t.closest('#shopZone'))delChar(+d.key)}}
+const dTagBtn=(t,v,l,col)=>`<button class="btn bev text-xs" data-t="${t}" data-v="${v}" ${D[t]===v?'style="background:#ff8a1f;color:#070e3a" ':''}onclick="dTag('${t}','${v}')">${col?`<span style="color:${col}">●</span> `:''}${l}</button>`;
+function dTag(t,v){D[t]=D[t]===v?'':v;document.querySelectorAll(`#dtags [data-t="${t}"]`).forEach(b=>{const on=b.dataset.v===D[t];b.style.background=on?'#ff8a1f':'';b.style.color=on?'#070e3a':''})}
+function addForm(){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="Fermer">✕</button><h2 class="text-mand text-sm pr-8">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><div id="dtags" class="space-y-2"><div class="text-xs">Industriel</div><div class="tags">${Object.entries(INDUSTRIES).map(([v,l])=>dTagBtn('ind',v,l)).join('')}</div><div class="text-xs">Classe</div><div class="tags">${Object.entries(CLASSES).map(([v,[l,c]])=>dTagBtn('cls',v,l,c)).join('')}</div></div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
+<button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer une image</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
+function previewImg(d){return `<img class="crop-16x10" src="${d}" alt="">`}
+function toCrop(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=480,H=300,w=im.width,h=im.height;let sx=0,sy=0,sw=w,sh=h;
+if(w/h>1.6){sw=h*1.6;sx=(w-sw)/2}else{sh=w/1.6;sy=(h-sh)/2}
+const cv=document.createElement('canvas');cv.width=W;cv.height=H;cv.getContext('2d').drawImage(im,sx,sy,sw,sh,0,0,W,H);cb(cv.toDataURL('image/jpeg',0.8))};im.src=r.result};r.readAsDataURL(f)}
+function pickImg(cb){const i=document.createElement('input');i.type='file';i.accept='image/*';i.style.display='none';document.body.appendChild(i);
+i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
+function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
+const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
+return `<section class="card bev p-3 space-y-2 relative"><button class="absolute ${c.fav?'text-mand':'text-mag'}" style="top:10px;right:10px" onclick="toggleFav(${c.id})" aria-label="Favori" aria-pressed="${!!c.fav}">${STAR(c.fav)}</button><div class="flex justify-center"><div class="relative" style="width:7rem">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="Retirer l'image">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="Supprimer ce char">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+const byId=id=>S.chars.find(c=>c.id===id);
+function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
+function addChar(){S.chars.push({id:newId(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img,ind:D.ind||null,cls:D.cls||null,fav:0});D={lvl:1,mods:[0,0,0,0,0],img:null,ind:'',cls:''};UI.m=null;go()}
+function cLvl(id,v){const c=byId(id);c.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])c.mods[i]=0});go()}
+function cMod(id,i,v){byId(id).mods[i]=+v;go()}
+function rmImg(id){if(confirm(byId(id)?.key?"Rétablir l'image d'origine ?":'Supprimer cette image ?')){byId(id).img=null;go()}}
+function delChar(id){if(confirm(byId(id)?.key?'Retirer ce char du hangar ? Son niveau et ses modules seront perdus.':'Supprimer ce char ? Il sera définitivement perdu.')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
+
+/* ---- Onglet 2 : Opérateurs ---- */
+/* Total des opérateurs pris en compte (opList) : progression des acquis + prix de déblocage (HC) des non acquis */
+function opSum(){const t=owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0});return{...t,h:opHC()}}
+function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row("Récompenses d'Opérateur restantes",o.g)}${row('Dépenses Aptitudes restantes',o.a)}${o.h?row('Déblocage des Opérateurs',[0,0,o.h]):''}${netLine('Total des Récompenses Restantes',o.a[0]-o.g[0],CR)}${kv('Matchs restants',fmt(o.m))}${kv('Temps de jeu estimé',hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,t=tgtOf(p),inL=opList().includes(k);
+const body=p.own?`${dualSlider(k,p.lvl,t)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. '+t+')',fmt(m))}${kvDone(k,p)}${row("Récompenses d'Opérateur restants",r.g)}${row('Dépenses Aptitudes restantes',r.a)}</div>${inL?'':'<p class="text-xs opacity-60">Hors favoris : exclu des calculs.</p>'}`:`<p class="text-sm opacity-60">Non acquis : seul le prix de déblocage (${o.price} ${HC}) est compté${inL?'.':' — hors favoris, exclu des calculs.'}</p>`;
+return `<section class="card bev op-card p-3 space-y-2${p.own?'':' op-off'}"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div><button class="${p.fav?'text-mand':'text-mag'}" onclick="oFav('${k}')" aria-label="Favori" aria-pressed="${!!p.fav}">${STAR(p.fav)}</button></div>${body}</section>`}).join('')}
+function oFav(k){S.ops[k].fav=S.ops[k].fav?0:1;go()}
+function oOwn(k,v){S.ops[k].own=+v;go()}
+function oLvl(k,v){const p=S.ops[k];if(v!==p.lvl)p.done=0;p.lvl=v;if(tgtOf(p)<v)p.tgt=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
+function oTgt(k,v){const p=S.ops[k];p.tgt=Math.max(v,p.lvl);go()}
+function opDone(k){const p=S.ops[k],max=OP_MATCHES[p.lvl-1];if(max==null)return;const v=prompt('Combats effectués sur le niveau '+p.lvl+' (sur '+max+') :',p.done||0);if(v===null)return;p.done=Math.min(max,Math.max(0,parseInt(v)||0));go()}
+const kvDone=(k,p)=>p.lvl>=30?kv('Combats effectués','Niveau max'):`<div class="flex justify-between items-center"><span>Combats effectués (niv. ${p.lvl})</span><span class="flex items-center gap-1"><b class="text-mand">${Math.min(p.done||0,OP_MATCHES[p.lvl-1])} / ${OP_MATCHES[p.lvl-1]}</b><button class="text-xs opacity-60 px-1" onclick="opDone('${k}')" aria-label="Modifier les combats effectués">✎</button></span></div>`;
+function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" data-k="${k}" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b></div>`}
+/* Curseurs superposés (niveau / objectif) : si les deux sont au même endroit au début du geste, le sens du déplacement décide
+   lequel bouge (gauche → curseur du niveau, droite → curseur de l'objectif) ; l'autre reste sur place. */
+let DUAL=null;
+document.addEventListener('pointerdown',e=>{const d=e.target.closest&&e.target.closest('.dual');if(!d)return;const a=d.querySelector('.da'),b=d.querySelector('.db');DUAL={d,tied:a.value===b.value,x0:+a.value}},true);
+const dualEnd=()=>{if(!DUAL)return;const d=DUAL.d;DUAL=null;setTimeout(()=>dualCommit(d),0)};
+document.addEventListener('pointerup',dualEnd);document.addEventListener('pointercancel',dualEnd);
+function dualIn(el){const d=el.closest('.dual'),a=d.querySelector('.da'),b=d.querySelector('.db'),w=el===a?0:1,v=+el.value;let x,y;
+if(DUAL&&DUAL.d===d&&DUAL.tied){const T=DUAL.x0;if(v<T){x=v;y=T}else if(v>T){x=T;y=v}else{x=y=T}}
+else{x=+a.value;y=+b.value;if(w===0&&x>y)y=x;if(w===1&&y<x)x=y}
+a.value=x;b.value=y;d.style.setProperty('--a',(x-1)/29*100+'%');d.style.setProperty('--b',(y-1)/29*100+'%');d.parentNode.querySelector('.dv').textContent=x+' → '+y}
+function dualCommit(d){const p=S.ops[d.dataset.k];if(!p)return;const x=+d.querySelector('.da').value,y=Math.max(+d.querySelector('.db').value,x);
+if(x===p.lvl&&y===tgtOf(p))return;
+if(x!==p.lvl)p.done=0;p.lvl=x;p.tgt=y;OP_SKILLS.forEach((k,i)=>{if(x<k[0])p.sk[i]=0});go()}
+function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}
+
+/* ---- Trophées : saisie unique, synchronisée sur les deux onglets ---- */
+const trophyCur=()=>`<label class="text-xs">Trophées actuels<input data-lg="cur" type="number" min="0" value="${S.lg.cur}" oninput="lgIn('cur',this.value)"></label>`;
+const trophyTgt=()=>`<label class="text-xs">Trophées visés<input data-lg="tgt" type="number" min="0" value="${S.lg.tgt}" oninput="lgIn('tgt',this.value)"></label>`;
+function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
+
+/* ---- Ressources actuelles : capital déjà en banque (t = 0), saisie sans reconstruction de la page ---- */
+const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ressources actuelles</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,'Crédits'],[1,AM,"Crédits d'amélioration"],[2,HC,'Hypercrédits']].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" max="${RES_MAX}" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
+function resIn(i,v){S.res[i]=clampRes(v);document.querySelectorAll(`[data-res="${i}"]`).forEach(e=>{if(+e.value>RES_MAX)e.value=RES_MAX});save();upd3()}
+
+/* ---- Onglet 3 : Récompenses ---- */
+const TRI=ic('trophy.png');
+const CYC='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
+function statsHtml(){const v=k=>gs(k),mm=matchMin();const inp=(k,l,step,val)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="${step}" min="0" value="${val}" style="width:6rem" onchange="statsIn('${k}',this.value)"></label>`;
+const det=`<div class="space-y-2 border-t border-mag/40 pt-2">
+${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / match gagnant','0.1',v('tw'))}${inp('tl','Trophées / match perdu','0.1',v('tl'))}
+<div class="flex justify-between text-sm"><span>Trophées / match (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
+<button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></div>`;
+return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Statistiques de Matchs</h2>
+<div class="flex items-center gap-2 text-xs"><span class="w-28">Matchs / jour</span><input id="actS" type="range" min="1" max="${MAXACT}" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
+<div class="flex items-center gap-2 text-xs"><span class="w-28">Temps de jeu / j</span><input id="timeS" type="range" min="${mm}" max="${MAXACT*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-20 text-right">${hm(S.act*mm)}</b></div>
+<div id="crp" class="text-sm text-right"></div>
+<button class="btn bev w-full text-xs" onclick="toggleT('s')">${UI.t.s?'▲ Masquer les statistiques':'▼ Détails des statistiques'}</button>${UI.t.s?det:''}</section>`}
+function statsRefresh(){const b=$('#statsBlock');if(S.tab===2&&b){b.outerHTML=statsHtml();upd3();return}render()}
+function statsIn(k,v){const n=+v;if(!(n>=0)||v==='')return;S.stats[k]=k==='win'?Math.min(100,n):n;save();statsRefresh()}
+function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.act=SIM.act;save();statsRefresh()}
+
+function vEval(){const ms=nextReset(Date.now())-Date.now(),nr=`${Math.floor(ms/864e5)}j ${Math.floor(ms%864e5/36e5)}h`;
+const vip=(n,l)=>`<div class="flex items-center gap-2"><label class="flex items-center gap-2 text-sm flex-1"><input type="checkbox" ${S.bps===n?'checked':''} onchange="bpStd(${n},this.checked)"> ${l}</label><button class="cycle-btn ${S.bpr===n?'on':''}" onclick="bpRec(${n})" aria-pressed="${S.bpr===n}" aria-label="Récurrence ${l}" title="Récurrence">${CYC}</button></div>`;
+return statsHtml()
++`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyCur()}<div id="rate" class="text-sm"></div>
+<button class="btn bev w-full text-xs" onclick="toggleT('l')">${UI.t.l?'▲ Masquer le calculateur':'▼ Calculateur de trophées visés'}</button>${UI.t.l?`<div class="space-y-2 border-t border-mag/40 pt-2">${trophyTgt()}<div id="lgr" class="text-sm space-y-1"></div></div>`:''}</section>`
++`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Battle Pass</h2><span class="text-xs text-mand font-bold">${nr}</span></div>${bpSlider()}${vip(1,'Battle Pass VIP (niv 1)')}${vip(2,'Battle Pass VIP (niv 2)')}<div id="bpr" class="text-sm space-y-1"></div></section>`
++resCard()
++`<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Estimation de Farm</h2><div id="net" class="text-sm space-y-1"></div></section>`}
+function applyAct(n){S.act=Math.max(1,Math.min(MAXACT,Math.round(n)||1));save();const mm=matchMin(),a=$('#actS'),t=$('#timeS'),av=$('#actV'),tv=$('#timeV');if(a)a.value=S.act;if(t)t.value=S.act*mm;if(av)av.textContent=S.act;if(tv)tv.textContent=hm(S.act*mm);upd3()}
+function actSync(v){applyAct(+v)}
+function timeSync(v){applyAct((+v)/matchMin())}
+function bpRec(n){S.bpr=S.bpr===n?0:n;go()}
+function bpSlider(){return `<div class="flex items-center gap-2"><input type="range" min="0" max="${BP_MAX}" value="${S.bpl}" oninput="this.nextElementSibling.textContent=this.value" onchange="setTimeout(()=>bpLvl(+this.value),0)"><b class="text-mand w-8 text-right">${S.bpl}</b></div>`}
+function bpLvl(v){S.bpl=Math.max(0,Math.min(BP_MAX,v));go()}
+function bpStd(n,ck){S.bps=ck?n:0;go()}
+const rowBoth=(l,v,b)=>`<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${fmt(v[0])} ${CR} · ${fmt(v[1])} ${AM}</span></div>`;
+const bpLine=(l,v,b)=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
+function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
+const L=$('#lgr');if(L)L.innerHTML=kv('Temps estimé',c.dT===null?'—':c.dT+' j')+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
+const cp=$('#crp');if(cp)cp.innerHTML=`<b class="text-mand">${fmt(crDay())} ${CR} / j</b>`;
+const col=(n,l)=>`<div><b class="text-mand">${fmt(n)} ${TRI} / ${l}</b><div class="text-sm">= ${fmt(S.lg.cur+n)} ${TRI}</div></div>`;
+$('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(pd,'j')}${col(pd*7,'sem')}${col(pd*30,'mois')}</div>`;
+$('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1);
+const sep='<hr class="border-mag/40 my-1">';
+const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
+const ICO=[CR,AM,HC];
+/* Temps de farm par ressource, côte à côte (affiché en fin de carte) */
+const dd=i=>c.need[i]===0?'—':c.dR[i]===null?'> 10 ans':`${c.dR[i]} j`;
+const dRow=`<div class="text-xs">Temps de farm</div><div class="flex justify-around gap-2 text-center">${[0,1,2].map(i=>`<div class="flex-1"><b class="text-mand">${dd(i)}</b><div>${ICO[i]}</div></div>`).join('')}</div>`;
+/* Excédent estimé : uniquement les ressources en surplus (> 0), affiché si la simulation aboutit */
+const ex=c.surplus.map((x,i)=>x>0?fmt(x)+' '+ICO[i]:null).filter(Boolean);
+const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 text-emerald-400 font-bold"><span>Excédent estimé</span><span class="text-right">${ex.join(' · ')}</span></div>`:'';
+const hasRes=!!(c.res[0]||c.res[1]||c.res[2]);
+e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)
++(hasRes?sep+row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1):'')+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine+sep
++kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)
++sep+dRow}
+
+const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';
+const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses'],['gear','Paramètres']];
+function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[9px] flex flex-col items-center justify-start gap-1 min-w-0 ${S.tab==i?'text-mand bg-night':'opacity-70'}"><span class="w-7 h-7 flex items-center justify-center">${t[0]==='gear'?GEAR:`<img src="${t[0]}" alt="" class="w-7 h-7 object-contain">`}</span><span class="leading-none">${t[1]}</span></button>`).join('');
+if(S.tab>3)S.tab=0;
+$('#app').innerHTML=[vHangar,vOps,vEval,vSet][S.tab]();[,,upd3][S.tab]?.();renderModal()}
+function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde</h2><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer</button></div></section>`}
+function bpSetHtml(){const ms=nextReset(Date.now())-Date.now(),dd=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5);
+return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>
+<p class="text-xs opacity-70">Durée fixe de 30 jours, réinitialisation à 9h (heure serveur, UTC+0). Indiquez le temps restant avant la fin du Battle Pass en cours pour synchroniser le site.</p>
+<div class="flex gap-2"><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Jours restants</span><input id="bpcD" type="number" step="1" min="0" max="30" value="${dd}" style="width:5rem" onchange="bpcSetRemaining()"></label><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Heures restantes</span><input id="bpcH" type="number" step="1" min="0" max="23" value="${hh}" style="width:5rem" onchange="bpcSetRemaining()"></label></div></section>`}
+function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Affichage</h2><div class="text-xs">Icônes par ligne</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
+function setCols(n){S.cols=n;go()}
+function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${dispHtml()}${bpSetHtml()}${ioHtml()}`}
+function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function pickFile(acc,cb){const i=document.createElement('input');i.type='file';i.accept=acc;i.style.display='none';document.body.appendChild(i);i.onchange=()=>{const f=i.files[0];i.remove();if(f)cb(f)};i.click()}
+async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}
+async function impZip(f){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
+o.chars=await Promise.all(o.chars.map(async c=>{const{imgFile,...r}=c;if(imgFile&&z.file(imgFile)){return{...r,img:'data:image/jpeg;base64,'+await z.file(imgFile).async('base64')}}return{...r,img:r.img||null}}));
+S={...def(),...o};fixS();fixRes();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
+render();

@@ -109,20 +109,23 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
 const h=hangar(),dop=opNeed(),dcx=S.inc.ch?h.T:Z,dpx=S.inc.op?dop:[0,0,0],need=[dcx[0]+dpx[0],dcx[1]+dpx[1],dpx[2]],f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
-/* Paliers restants des opérateurs pris en compte : [matchs requis, récompense [Cr, Amél.]] ; toujours comptés (récompenses automatiques en jouant), même si « Dépenses Opérateurs » est décoché */
-const stp=[];owned().forEach(k=>{const p=S.ops[k],t=tgtOf(p);for(let lv=p.lvl;lv<t;lv++){const m=lv===p.lvl?Math.max(0,OP_MATCHES[lv-1]-(p.done||0)):OP_MATCHES[lv-1];stp.push([m,OP_REWARDS[lv]||Z])}});
+const ownKeys=owned();   // récompenses de niveaux toujours comptées, même si « Dépenses Opérateurs » est décoché
+const lgA=t=>lgGain(cur+pd*t,1/0);
+const rs=resetDays(Date.now()),sim=bpRun(rs),dT=daysToTarget();
+/* Simulation dépendante de l'ordre des opérateurs : seuls les paliers de niveaux (récompenses) changent selon l'ordre de jeu */
+function runOrder(keys){
+/* Paliers restants : [matchs requis, récompense [Cr, Amél.]], dans l'ordre de jeu */
+const stp=[];keys.forEach(key=>{const p=S.ops[key],t=tgtOf(p);for(let lv=p.lvl;lv<t;lv++){const m=lv===p.lvl?Math.max(0,OP_MATCHES[lv-1]-(p.done||0)):OP_MATCHES[lv-1];stp.push([m,OP_REWARDS[lv]||Z])}});
 let acc=0;const stc=stp.map(([m,r])=>(acc+=m,[acc,r]));   // coût cumulé en matchs de chaque palier
 const opN=n=>{let c=0,a=0;for(const s of stc){if(s[0]>n)break;c+=s[1][0];a+=s[1][1]}return[c,a]};   // seuls les paliers réellement atteints après n matchs
 const opAt=t=>opN(f*t);
-const lgA=t=>lgGain(cur+pd*t,1/0);
-const rs=resetDays(Date.now()),sim=bpRun(rs);
 /* Premier jour t où chaque ressource couvre sa dépense (gains monotones : D = max des trois) */
 const dR=[null,null,null];
 for(let t=0;t<=MAXD;t++){
 const bpT=sim.cumArr[t],o=opAt(t),l=lgA(t),ok=[res[0]+b*t+o[0]+l[0]+bpT[0]>=need[0],res[1]+o[1]+l[1]+bpT[1]>=need[1],res[2]+bpT[2]>=need[2]];
 for(let i=0;i<3;i++)if(dR[i]===null&&ok[i])dR[i]=t;
 if(dR.every(x=>x!==null))break}
-const D=dR.every(x=>x!==null)?Math.max(...dR):null,dT=daysToTarget();
+const D=dR.every(x=>x!==null)?Math.max(...dR):null;
 const Dd=D===null?MAXD:D;
 let farm=b*Dd,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd];
 /* Affinage du jour D, match par match, à partir de l'état de fin du jour D-1 */
@@ -152,13 +155,24 @@ farm=r.fm;op=r.o;lg=r.l;bpFull=cum;bpVip1=vip1;bpVip2=vip2;k=kk}
 const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
 // tot = farm + bp + vip1 + vip2 + lg + op : uniquement les récompenses réellement obtenues (sans le stock res)
 const tot=[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1],bpFull[2]];
-// left = reste à farmer après déduction du stock actuel
-const left=[Math.max(0,need[0]-res[0]),Math.max(0,need[1]-res[1]),Math.max(0,need[2]-res[2])];
 // surplus = reste net de chaque ressource une fois les dépenses payées
 const surplus=tot.map((x,i)=>Math.max(0,res[i]+x-need[i]));
 // Mtot = matchs futurs simulés jusqu'à l'arrêt
 const Mtot=D===null?null:(D===0?0:(D-1)*f+mS);
-return{need,inc:S.inc,dc:h.T,dop,res,left,op,lg,bp,bpVip1,bpVip2,k,D,Dd,dR,Mtot,surplus,b,farm,tot,dT,p:proj(dT||0)}}
+return{op,lg,bp,bpVip1,bpVip2,k,D,Dd,dR,Mtot,surplus,farm,tot}}
+const base=runOrder(ownKeys);
+// left = reste à farmer après déduction du stock actuel
+const left=[Math.max(0,need[0]-res[0]),Math.max(0,need[1]-res[1]),Math.max(0,need[2]-res[2])];
+/* Astuce : quel opérateur acquis (favori ou non) jouer en premier pour finir plus vite ? (les dépenses `need` ne changent pas) */
+const allOwned=Object.keys(OPS).filter(k=>S.ops[k].own);
+let tip=null,bestM=base.Mtot;
+for(const k of allOwned){
+if(!(S.ops[k].lvl<tgtOf(S.ops[k])))continue;
+const order=[k,...ownKeys.filter(x=>x!==k)];
+if(order.join()===ownKeys.join())continue;
+const alt=runOrder(order);
+if(alt.Mtot!==null&&(bestM===null||alt.Mtot<bestM)){bestM=alt.Mtot;tip={name:OPS[k].n,dGain:base.D!==null?base.D-alt.D:null,mGain:base.Mtot!==null?base.Mtot-alt.Mtot:null,D:alt.D}}}
+return{need,inc:S.inc,dc:h.T,dop,res,left,...base,b,dT,tip,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{if(t==='p')P={key:id,lvl:1,mods:[0,0,0,0,0]};UI.m=t==='c'?{t:'c',id}:t==='p'?{t:'p'}:{t:'a'};render()};
@@ -364,10 +378,11 @@ const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 tex
 const hasRes=!!(c.res[0]||c.res[1]||c.res[2]);
 const det=(hasRes?row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1)+sep:'')
 +row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine;
+const tp=c.tip,tipLine=tp?`<div class="flex justify-between gap-2 text-xs text-emerald-400"><span>Astuce priorité</span><b class="text-right">Jouer ${esc(tp.name)} (${tp.mGain!==null?(tp.dGain>0?`-${tp.dGain} j (-${hm(tp.mGain*matchMin())})`:`-${hm(tp.mGain*matchMin())}`):`${tp.D} j`})</b></div>`:'';
 e.innerHTML=expRow('Dépenses Chars',c.dc,c.inc.ch,'ch')+expRow('Dépenses Opérateurs',c.dop,c.inc.op,'op')+row('Dépenses Total',c.need,1)
 +`<button class="btn bev w-full text-xs" onclick="toggleT('f')">${UI.t.f?'▲ Masquer les détails':'▼ Détails Estimations'}</button>`
 +(UI.t.f?`<div class="space-y-1 border-t border-mag/40 pt-2">${det}</div>`:'')
-+sep+kv('Temps de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)
++sep+kv('Temps de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)+tipLine
 +sep+dRow}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

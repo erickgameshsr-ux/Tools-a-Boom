@@ -102,7 +102,8 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
    Dépenses : chars (niveaux + modules) + aptitudes des opérateurs acquis + prix de déblocage (HC) des opérateurs non acquis
    Stock : ressources actuelles S.res (capital déjà en banque à t = 0), compté dans la condition d'arrêt mais PAS dans les récompenses affichées
    Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier, dont HC)
-   Les HC proviennent du capital S.res[2], du Battle Pass (paliers 10/20/30/45, doublés en VIP) et du bonus VIP niv.2 (BP_V2[2]). */
+   Les HC proviennent du capital S.res[2], du Battle Pass (paliers 10/20/30/45, doublés en VIP) et du bonus VIP niv.2 (BP_V2[2]).
+   dR[i] = premier jour t où la ressource i couvre sa dépense ; D = max(dR) (jour où les trois sont couvertes). */
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
 const h=hangar(),dop=opNeed(),need=[h.T[0]+dop[0],h.T[1]+dop[1],dop[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
@@ -110,13 +111,17 @@ const opN=n=>{const x=M>0?Math.min(1,n/M):1;return[G[0]*x,G[1]*x]};
 const opAt=t=>opN(f*t);
 const lgA=t=>lgGain(cur+pd*t,1/0);
 const rs=resetDays(Date.now()),sim=bpRun(rs);
-let D=null;
+/* Premier jour t où chaque ressource couvre sa dépense (gains monotones : D = max des trois) */
+const dR=[null,null,null];
 for(let t=0;t<=MAXD;t++){
-const bpT=sim.cumArr[t];
-if(res[0]+b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&res[1]+opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]&&res[2]+bpT[2]>=need[2]){D=t;break}}
-const Dd=D===null?MAXD:D,dT=daysToTarget();
+const bpT=sim.cumArr[t],o=opAt(t),l=lgA(t),ok=[res[0]+b*t+o[0]+l[0]+bpT[0]>=need[0],res[1]+o[1]+l[1]+bpT[1]>=need[1],res[2]+bpT[2]>=need[2]];
+for(let i=0;i<3;i++)if(dR[i]===null&&ok[i])dR[i]=t;
+if(dR.every(x=>x!==null))break}
+const D=dR.every(x=>x!==null)?Math.max(...dR):null,dT=daysToTarget();
+const Dd=D===null?MAXD:D;
 let farm=b*Dd,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd];
 /* Affinage du jour D, match par match, à partir de l'état de fin du jour D-1 */
+let mS=0;
 if(D>=1){
 let{tier,xp,ss,vip,cum,vip1,vip2,k:kk}=sim.stArr[D-1];
 const n0=(D-1)*f,f0=(D-1)*b;
@@ -136,13 +141,19 @@ xp+=g;
 while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_REWARDS.find(x=>x[0]===tier);
 if(rw){const v=[rw[1],rw[2],rw[3]];cum=add3(cum,v);if(vip&&rw[4]){cum=add3(cum,v);vip1=add3(vip1,v)}}}
 r=chk(m)}
+mS=m;
 farm=r.fm;op=r.o;lg=r.l;bpFull=cum;bpVip1=vip1;bpVip2=vip2;k=kk}
 // bp = voie gratuite seule : bp+bpVip1+bpVip2=bpFull toujours
 const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
 // tot = farm + bp + vip1 + vip2 + lg + op : uniquement les récompenses réellement obtenues (sans le stock res)
+const tot=[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1],bpFull[2]];
 // left = reste à farmer après déduction du stock actuel
 const left=[Math.max(0,need[0]-res[0]),Math.max(0,need[1]-res[1]),Math.max(0,need[2]-res[2])];
-return{need,dc:h.T,dop,res,left,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1],bpFull[2]],dT,p:proj(dT||0)}}
+// surplus = reste net de chaque ressource une fois les dépenses payées
+const surplus=tot.map((x,i)=>Math.max(0,res[i]+x-need[i]));
+// Mtot = matchs futurs simulés jusqu'à l'arrêt
+const Mtot=D===null?null:(D===0?0:(D-1)*f+mS);
+return{need,dc:h.T,dop,res,left,op,lg,bp,bpVip1,bpVip2,k,D,Dd,dR,Mtot,surplus,b,farm,tot,dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -327,10 +338,18 @@ $('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(
 $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1);
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
-e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)
+const ICO=[CR,AM,HC];
+/* Temps de farm par ressource, côte à côte */
+const dd=i=>c.need[i]===0?'—':c.dR[i]===null?'> 10 ans':`${c.dR[i]} j`;
+const dRow=`<div class="text-xs">Temps de farm</div><div class="flex justify-around gap-2 text-center">${[0,1,2].map(i=>`<div class="flex-1"><b class="text-mand">${dd(i)}</b><div>${ICO[i]}</div></div>`).join('')}</div>`;
+/* Excédent estimé : uniquement les ressources en surplus (> 0), affiché si la simulation aboutit */
+const ex=c.surplus.map((x,i)=>x>0?fmt(x)+' '+ICO[i]:null).filter(Boolean);
+const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 text-emerald-400 font-bold"><span>Excédent estimé</span><span class="text-right">${ex.join(' · ')}</span></div>`:'';
+e.innerHTML=dRow+sep
++row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)
 +((c.res[0]||c.res[1]||c.res[2])?row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1):'')+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
-+kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine+sep
++kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';
 const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses'],['gear','Paramètres']];

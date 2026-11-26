@@ -108,8 +108,11 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
    dR[i] = premier jour t où la ressource i couvre sa dépense ; D = max(dR) (jour où les trois sont couvertes). */
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
-const h=hangar(),dop=opNeed(),dcx=S.inc.ch?h.T:Z,dpx=S.inc.op?dop:[0,0,0],need=[dcx[0]+dpx[0],dcx[1]+dpx[1],dpx[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
-const opN=n=>{const x=M>0?Math.min(1,n/M):1;return[G[0]*x,G[1]*x]};
+const h=hangar(),dop=opNeed(),dcx=S.inc.ch?h.T:Z,dpx=S.inc.op?dop:[0,0,0],need=[dcx[0]+dpx[0],dcx[1]+dpx[1],dpx[2]],f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
+/* Paliers restants des opérateurs pris en compte : [matchs requis, récompense [Cr, Amél.]] ; liste vide si « Dépenses Opérateurs » est décoché */
+const stp=[];if(S.inc.op)owned().forEach(k=>{const p=S.ops[k],t=tgtOf(p);for(let lv=p.lvl;lv<t;lv++){const m=lv===p.lvl?Math.max(0,OP_MATCHES[lv-1]-(p.done||0)):OP_MATCHES[lv-1];stp.push([m,OP_REWARDS[lv]||Z])}});
+let acc=0;const stc=stp.map(([m,r])=>(acc+=m,[acc,r]));   // coût cumulé en matchs de chaque palier
+const opN=n=>{let c=0,a=0;for(const s of stc){if(s[0]>n)break;c+=s[1][0];a+=s[1][1]}return[c,a]};   // seuls les paliers réellement atteints après n matchs
 const opAt=t=>opN(f*t);
 const lgA=t=>lgGain(cur+pd*t,1/0);
 const rs=resetDays(Date.now()),sim=bpRun(rs);

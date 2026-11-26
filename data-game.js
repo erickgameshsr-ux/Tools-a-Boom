@@ -23,8 +23,9 @@ const DAILY_CAP=2000; // Plafond de farm : Crédits de combat gagnés par jour
 const CR_PER_FIGHT=180; // Crédits moyens gagnés par combat normal (indicatif)
 // Simulateur : taux de victoire, trophées gagnés par match, minutes par match
 const SIM={act:5,win:75,tw:15,tl:8,min:4,extra:1}; // Valeurs par défaut : combats/jour, taux de victoires (%), trophées gagnant / perdu, durée d'un match (min). « extra » = temps hors combat par match (matchmaking, transitions) : utilisé dans les calculs, non paramétrable.
-// Cycle du Battle Pass (modifiable dans Paramètres) : durée en jours, jour du mois du prochain reset, heure UTC+0
-const BP_RESET={dur:30,day:3,utcHour:9};
+// Durée fixe d'un Battle Pass (jours) ; la réinitialisation a toujours lieu à 9h (heure serveur, UTC+0).
+// Le calage exact de la saison en cours se fait dans Paramètres (temps restant saisi par le joueur).
+const BP_DUR=30;
 // Bonus à l'activation du Battle Pass VIP niv2 : [Crédits, Crédits d'amél., Hypercrédits]
 const BP_V2=[20000,10000,50];
 // XP requise pour passer du palier N au palier N+1 (index 0 = palier 0→1 ... index 49 = palier 49→50)

@@ -4,7 +4,7 @@ const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
 fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0]}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3});
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const fixS=()=>S.chars.forEach(c=>{if(c.fav===undefined)c.fav=1});fixS();   // chars créés avant les favoris : considérés comme favoris
 const newId=()=>{let i=Date.now();while(S.chars.some(c=>c.id===i))i++;return i};
@@ -13,7 +13,8 @@ const go=()=>{save();render()};
 let D={lvl:1,mods:[0,0,0,0,0],img:null,ind:'',cls:''};
 let UI={m:null,t:{h:false,o:false,l:false,s:false,a:false,c:false},f:{h:{o:false,ind:[],cls:[]},c:{o:false,ind:[],cls:[]}}};   // état d'affichage (fenêtre ouverte), non sauvegardé
 
-const row=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
+/* row : accepte [Crédits, Crédits d'amél., Hypercrédits] ; les HC ne s'affichent que s'ils sont > 0 */
+const row=(l,v,b)=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
 const netLine=(l,x,u)=>x>=0?kv(l,fmt(x)+' '+u):`<div class="flex justify-between"><span>${l}</span><b class="text-emerald-400">Excédent de +${fmt(-x)} ${u}</b></div>`;
 const hm=m=>{const t=Math.round(m);return `${Math.floor(t/60)} h ${String(t%60).padStart(2,'0')} min`};
@@ -25,11 +26,17 @@ const dBoxes=()=>boxes(MODS,D.lvl,D.mods,i=>`D.mods[${i}]=+this.checked`,'M');
 const is100=c=>c.lvl>=20&&MODS.every((m,i)=>c.mods[i]);
 const hangarList=()=>{const favs=S.chars.filter(c=>c.fav);return favs.length?favs:S.chars.filter(c=>!is100(c))};
 function hangar(){let L=Z,M=Z;hangarList().forEach(c=>{L=add(L,sumP(LEVEL_COSTS.slice(c.lvl-1)));MODS.forEach((m,i)=>{if(!c.mods[i])M=add(M,[m[1],0])})});return{L,M,T:add(L,M)}}
-const owned=()=>Object.keys(OPS).filter(k=>S.ops[k].own);
+/* Opérateurs pris en compte : favoris s'il y en a au moins un, sinon tous.
+   - acquis (owned) : progression seule (aptitudes en Crédits, récompenses de niveaux, matchs)
+   - non acquis (locked) : uniquement le prix de déblocage en Hypercrédits */
+const opList=()=>{const f=Object.keys(OPS).filter(k=>S.ops[k].fav);return f.length?f:Object.keys(OPS)};
+const owned=()=>opList().filter(k=>S.ops[k].own);
+const locked=()=>opList().filter(k=>!S.ops[k].own);
+const opHC=()=>locked().reduce((t,k)=>t+OPS[k].price,0);
 const tgtOf=p=>Math.max(p.tgt||30,p.lvl);
 const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
 function opRem(p){const l=p.lvl,t=tgtOf(p);if(l>=t)return{g:Z,a:Z,m:0};const cur=Math.max(0,OP_MATCHES[l-1]-(p.done||0));return{g:sumP(OP_REWARDS.slice(l,t)),a:[skLeft(p),0],m:cur+OP_MATCHES.slice(l,t-1).reduce((x,y)=>x+y,0)}}
-const opNeed=()=>[owned().reduce((t,k)=>t+skLeft(S.ops[k]),0),0];
+const opNeed=()=>[owned().reduce((t,k)=>t+skLeft(S.ops[k]),0),0,opHC()];   // [Crédits aptitudes, Amél., Hypercrédits de déblocage]
 const bpSum=(f,t=S.bps)=>BP_REWARDS.filter(f).reduce((s,r)=>{const m=t&&r[4]?2:1;return[s[0]+r[1]*m,s[1]+r[2]*m,s[2]+r[3]*m]},[0,0,0]);
 const withV2=(s,t)=>t===2?s.map((x,i)=>x+BP_V2[i]):s;
 const bpRest=()=>bpSum(r=>r[0]>S.bpl);
@@ -66,8 +73,9 @@ function bpcSetRemaining(){const d=Math.max(0,+$('#bpcD').value||0),h=Math.max(0
    qu'une trajectoire d'XP possible pour un joueur donné. Pour chaque palier franchi, sa récompense BP_REWARDS est
    ventilée a posteriori en trois parts : cum = somme complète (gratuite + VIP niv.1 + VIP niv.2) ; vip1 = le
    doublement du Battle Pass payant (×1 supplémentaire) sur les paliers qui le permettent ; vip2 = le seul bonus
-   immédiat d'activation du VIP niv.2 (BP_V2). La part gratuite affichée ("Battle Pass") se déduit toujours de
-   cum-vip1-vip2, sans seconde simulation : bp+vip1+vip2 = cum, exactement. */
+   immédiat d'activation du VIP niv.2 (BP_V2 : Crédits, Amél., Hypercrédits). La part gratuite affichée ("Battle Pass")
+   se déduit toujours de cum-vip1-vip2, sans seconde simulation : bp+vip1+vip2 = cum, exactement.
+   Chaque vecteur a 3 composantes : [Crédits, Crédits d'amél., Hypercrédits]. */
 function bpRun(rs){
 const cumArr=new Array(MAXD+1),vip1Arr=new Array(MAXD+1),vip2Arr=new Array(MAXD+1),kArr=new Array(MAXD+1),stArr=new Array(MAXD+1);
 let tier=S.bpl,xp=0,seasonStock=0,vip=S.bps,cum=[0,0,0],vip1=[0,0,0],vip2=[0,0,0],k=0,ri=0;
@@ -87,12 +95,13 @@ while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_R
 cumArr[t]=cum;vip1Arr[t]=vip1;vip2Arr[t]=vip2;kArr[t]=k;stArr[t]={tier,xp,ss:seasonStock,vip,cum,vip1,vip2,k}}
 return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
 
-/* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses en Crédits ----
-   Dépenses : chars (niveaux + modules) + aptitudes opérateurs
-   Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier) */
+/* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses (Crédits, Crédits d'amél. ET Hypercrédits) ----
+   Dépenses : chars (niveaux + modules) + aptitudes des opérateurs acquis + prix de déblocage (HC) des opérateurs non acquis
+   Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier, dont HC)
+   Les HC proviennent uniquement du Battle Pass (paliers 10/20/30/45, doublés en VIP) et du bonus VIP niv.2 (BP_V2[2]). */
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
-const h=hangar(),dop=opNeed(),need=add(h.T,dop),os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr();
+const h=hangar(),dop=opNeed(),need=[h.T[0]+dop[0],h.T[1]+dop[1],dop[2]],os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr();
 const opN=n=>{const x=M>0?Math.min(1,n/M):1;return[G[0]*x,G[1]*x]};
 const opAt=t=>opN(f*t);
 const lgA=t=>lgGain(cur+pd*t,1/0);
@@ -100,7 +109,7 @@ const rs=resetDays(Date.now()),sim=bpRun(rs);
 let D=null;
 for(let t=0;t<=MAXD;t++){
 const bpT=sim.cumArr[t];
-if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]){D=t;break}}
+if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]&&bpT[2]>=need[2]){D=t;break}}
 const Dd=D===null?MAXD:D,dT=daysToTarget();
 let farm=b*Dd,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd];
 /* Affinage du jour D, match par match, à partir de l'état de fin du jour D-1 */
@@ -108,7 +117,7 @@ if(D>=1){
 let{tier,xp,ss,vip,cum,vip1,vip2,k:kk}=sim.stArr[D-1];
 const n0=(D-1)*f,f0=(D-1)*b;
 const chk=m=>{const n=n0+m,fm=f0+Math.min(DAILY_CAP,m*CR_PER_FIGHT),o=opN(n),l=lgGain(cur+tr*n,1/0);
-return{fm,o,l,hit:fm+o[0]+l[0]+cum[0]>=need[0]&&o[1]+l[1]+cum[1]>=need[1]}};
+return{fm,o,l,hit:fm+o[0]+l[0]+cum[0]>=need[0]&&o[1]+l[1]+cum[1]>=need[1]&&cum[2]>=need[2]}};
 // m = 0 : reset éventuel + stock de missions de saison du jour
 if(rs.includes(D)){tier=0;xp=0;ss=0;vip=S.bpr;if(vip===2){cum=add3(cum,BP_V2);vip2=add3(vip2,BP_V2)}kk++}
 ss+=vip?BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_VIP:BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_F2P;
@@ -126,7 +135,7 @@ r=chk(m)}
 farm=r.fm;op=r.o;lg=r.l;bpFull=cum;bpVip1=vip1;bpVip2=vip2;k=kk}
 // bp = voie gratuite seule : bp+bpVip1+bpVip2=bpFull toujours
 const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
-return{need,dc:h.T,dop,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
+return{need,dc:h.T,dop,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1],bpFull[2]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -233,10 +242,12 @@ function rmImg(id){if(confirm(byId(id)?.key?"Rétablir l'image d'origine ?":'Sup
 function delChar(id){if(confirm(byId(id)?.key?'Retirer ce char du hangar ? Son niveau et ses modules seront perdus.':'Supprimer ce char ? Il sera définitivement perdu.')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
 
 /* ---- Onglet 2 : Opérateurs ---- */
-function opSum(){return owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0})}
-function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row("Récompenses d'Opérateur restantes",o.g)}${row('Dépenses Aptitudes restantes',o.a)}${netLine('Total des Récompenses Restantes',o.a[0]-o.g[0],CR)}${kv('Matchs restants',fmt(o.m))}${kv('Temps de jeu estimé',hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,t=tgtOf(p);
-const body=p.own?`${dualSlider(k,p.lvl,t)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. '+t+')',fmt(m))}${kvDone(k,p)}${row("Récompenses d'Opérateur restants",r.g)}${row('Dépenses Aptitudes restantes',r.a)}</div>`:'<p class="text-sm opacity-60">Non acquis : exclu des calculs.</p>';
-return `<section class="card bev op-card p-3 space-y-2${p.own?'':' op-off'}"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div></div>${body}</section>`}).join('')}
+/* Total des opérateurs pris en compte (opList) : progression des acquis + prix de déblocage (HC) des non acquis */
+function opSum(){const t=owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0});return{...t,h:opHC()}}
+function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row("Récompenses d'Opérateur restantes",o.g)}${row('Dépenses Aptitudes restantes',o.a)}${o.h?row('Déblocage des Opérateurs',[0,0,o.h]):''}${netLine('Total des Récompenses Restantes',o.a[0]-o.g[0],CR)}${kv('Matchs restants',fmt(o.m))}${kv('Temps de jeu estimé',hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,t=tgtOf(p),inL=opList().includes(k);
+const body=p.own?`${dualSlider(k,p.lvl,t)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. '+t+')',fmt(m))}${kvDone(k,p)}${row("Récompenses d'Opérateur restants",r.g)}${row('Dépenses Aptitudes restantes',r.a)}</div>${inL?'':'<p class="text-xs opacity-60">Hors favoris : exclu des calculs.</p>'}`:`<p class="text-sm opacity-60">Non acquis : seul le prix de déblocage (${o.price} ${HC}) est compté${inL?'.':' — hors favoris, exclu des calculs.'}</p>`;
+return `<section class="card bev op-card p-3 space-y-2${p.own?'':' op-off'}"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div><button class="${p.fav?'text-mand':'text-mag'}" onclick="oFav('${k}')" aria-label="Favori" aria-pressed="${!!p.fav}">${STAR(p.fav)}</button></div>${body}</section>`}).join('')}
+function oFav(k){S.ops[k].fav=S.ops[k].fav?0:1;go()}
 function oOwn(k,v){S.ops[k].own=+v;go()}
 function oLvl(k,v){const p=S.ops[k];if(v!==p.lvl)p.done=0;p.lvl=v;if(tgtOf(p)<v)p.tgt=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
 function oTgt(k,v){const p=S.ops[k];p.tgt=Math.max(v,p.lvl);go()}
@@ -295,7 +306,7 @@ function bpSlider(){return `<div class="flex items-center gap-2"><input type="ra
 function bpLvl(v){S.bpl=Math.max(0,Math.min(BP_MAX,v));go()}
 function bpStd(n,ck){S.bps=ck?n:0;go()}
 const rowBoth=(l,v,b)=>`<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${fmt(v[0])} ${CR} · ${fmt(v[1])} ${AM}</span></div>`;
-const bpLine=(l,v,b)=>{const p=[];if(v[0]||!v[1])p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
+const bpLine=(l,v,b)=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
 const L=$('#lgr');if(L)L.innerHTML=kv('Temps estimé',c.dT===null?'—':c.dT+' j')+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
 const cp=$('#crp');if(cp)cp.innerHTML=`<b class="text-mand">${fmt(crDay())} ${CR} / j</b>`;
@@ -305,7 +316,7 @@ $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

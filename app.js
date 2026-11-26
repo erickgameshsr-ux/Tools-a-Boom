@@ -109,8 +109,8 @@ return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
 const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
 const h=hangar(),dop=opNeed(),dcx=S.inc.ch?h.T:Z,dpx=S.inc.op?dop:[0,0,0],need=[dcx[0]+dpx[0],dcx[1]+dpx[1],dpx[2]],f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr(),res=S.res;
-/* Paliers restants des opérateurs pris en compte : [matchs requis, récompense [Cr, Amél.]] ; liste vide si « Dépenses Opérateurs » est décoché */
-const stp=[];if(S.inc.op)owned().forEach(k=>{const p=S.ops[k],t=tgtOf(p);for(let lv=p.lvl;lv<t;lv++){const m=lv===p.lvl?Math.max(0,OP_MATCHES[lv-1]-(p.done||0)):OP_MATCHES[lv-1];stp.push([m,OP_REWARDS[lv]||Z])}});
+/* Paliers restants des opérateurs pris en compte : [matchs requis, récompense [Cr, Amél.]] ; toujours comptés (récompenses automatiques en jouant), même si « Dépenses Opérateurs » est décoché */
+const stp=[];owned().forEach(k=>{const p=S.ops[k],t=tgtOf(p);for(let lv=p.lvl;lv<t;lv++){const m=lv===p.lvl?Math.max(0,OP_MATCHES[lv-1]-(p.done||0)):OP_MATCHES[lv-1];stp.push([m,OP_REWARDS[lv]||Z])}});
 let acc=0;const stc=stp.map(([m,r])=>(acc+=m,[acc,r]));   // coût cumulé en matchs de chaque palier
 const opN=n=>{let c=0,a=0;for(const s of stc){if(s[0]>n)break;c+=s[1][0];a+=s[1][1]}return[c,a]};   // seuls les paliers réellement atteints après n matchs
 const opAt=t=>opN(f*t);

@@ -378,7 +378,7 @@ const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 tex
 const hasRes=!!(c.res[0]||c.res[1]||c.res[2]);
 const det=(hasRes?row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1)+sep:'')
 +row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine;
-const tp=c.tip,tipLine=tp?`<div class="flex justify-between gap-2 text-xs text-emerald-400"><span>Astuce priorité</span><b class="text-right">Jouer ${esc(tp.name)} (${tp.mGain!==null?(tp.dGain>0?`-${tp.dGain} j (-${hm(tp.mGain*matchMin())})`:`-${hm(tp.mGain*matchMin())}`):`${tp.D} j`})</b></div>`:'';
+const tipLine=c.tip?`<div class="flex justify-between gap-2 text-xs text-emerald-400"><span>Astuce priorité</span><b class="text-right">Jouer ${esc(c.tip.name)}: ${c.tip.mGain !== null ? (c.tip.dGain > 0 ? `-${c.tip.dGain}j ( -${hm(c.tip.mGain * matchMin())} )` : `-${hm(c.tip.mGain * matchMin())}`) : `${c.tip.D}j`}</b></div>`:'';
 e.innerHTML=expRow('Dépenses Chars',c.dc,c.inc.ch,'ch')+expRow('Dépenses Opérateurs',c.dop,c.inc.op,'op')+row('Dépenses Total',c.need,1)
 +`<button class="btn bev w-full text-xs" onclick="toggleT('f')">${UI.t.f?'▲ Masquer les détails':'▼ Détails Estimations'}</button>`
 +(UI.t.f?`<div class="space-y-1 border-t border-mag/40 pt-2">${det}</div>`:'')

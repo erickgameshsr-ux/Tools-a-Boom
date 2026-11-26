@@ -69,9 +69,9 @@ function bpcSetRemaining(){const d=Math.max(0,+$('#bpcD').value||0),h=Math.max(0
    immédiat d'activation du VIP niv.2 (BP_V2). La part gratuite affichée ("Battle Pass") se déduit toujours de
    cum-vip1-vip2, sans seconde simulation : bp+vip1+vip2 = cum, exactement. */
 function bpRun(rs){
-const cumArr=new Array(MAXD+1),vip1Arr=new Array(MAXD+1),vip2Arr=new Array(MAXD+1),kArr=new Array(MAXD+1);
+const cumArr=new Array(MAXD+1),vip1Arr=new Array(MAXD+1),vip2Arr=new Array(MAXD+1),kArr=new Array(MAXD+1),stArr=new Array(MAXD+1);
 let tier=S.bpl,xp=0,seasonStock=0,vip=S.bps,cum=[0,0,0],vip1=[0,0,0],vip2=[0,0,0],k=0,ri=0;
-cumArr[0]=[0,0,0];vip1Arr[0]=[0,0,0];vip2Arr[0]=[0,0,0];kArr[0]=0; // t=0 : aucune journée de jeu écoulée, donc aucune XP de mission encore gagnée
+cumArr[0]=[0,0,0];vip1Arr[0]=[0,0,0];vip2Arr[0]=[0,0,0];kArr[0]=0;stArr[0]={tier,xp,ss:seasonStock,vip,cum,vip1,vip2,k}; // t=0 : aucune journée de jeu écoulée, donc aucune XP de mission encore gagnée
 for(let t=1;t<=MAXD;t++){
 while(ri<rs.length&&rs[ri]===t){tier=0;xp=0;seasonStock=0;vip=S.bpr;if(vip===2){cum=[cum[0]+BP_V2[0],cum[1]+BP_V2[1],cum[2]+BP_V2[2]];vip2=[vip2[0]+BP_V2[0],vip2[1]+BP_V2[1],vip2[2]+BP_V2[2]]}k++;ri++}
 const daily=Math.min(S.act,BP_DAILY_MISSION_MATCHES)*(BP_DAILY_MISSION_XP*BP_DAILY_MISSION_COUNT/BP_DAILY_MISSION_MATCHES);
@@ -84,24 +84,47 @@ let gain=daily+consumed;
 if(vip===2)gain*=BP_VIP2_BONUS;
 xp+=gain;
 while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_REWARDS.find(r=>r[0]===tier);if(rw){cum=[cum[0]+rw[1],cum[1]+rw[2],cum[2]+rw[3]];if(vip&&rw[4]){cum=[cum[0]+rw[1],cum[1]+rw[2],cum[2]+rw[3]];vip1=[vip1[0]+rw[1],vip1[1]+rw[2],vip1[2]+rw[3]]}}}
-cumArr[t]=cum;vip1Arr[t]=vip1;vip2Arr[t]=vip2;kArr[t]=k}
-return{cumArr,vip1Arr,vip2Arr,kArr}}
+cumArr[t]=cum;vip1Arr[t]=vip1;vip2Arr[t]=vip2;kArr[t]=k;stArr[t]={tier,xp,ss:seasonStock,vip,cum,vip1,vip2,k}}
+return{cumArr,vip1Arr,vip2Arr,kArr,stArr}}
 
 /* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses en Crédits ----
    Dépenses : chars (niveaux + modules) + aptitudes opérateurs
    Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier) */
+const add3=(a,c)=>[a[0]+c[0],a[1]+c[1],a[2]+c[2]];
 function calc(){
-const h=hangar(),dop=opNeed(),need=add(h.T,dop),os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur;
-const opAt=t=>{const x=M>0?Math.min(1,f*t/M):1;return[G[0]*x,G[1]*x]};
+const h=hangar(),dop=opNeed(),need=add(h.T,dop),os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur,tr=avgTr();
+const opN=n=>{const x=M>0?Math.min(1,n/M):1;return[G[0]*x,G[1]*x]};
+const opAt=t=>opN(f*t);
 const lgA=t=>lgGain(cur+pd*t,1/0);
 const rs=resetDays(Date.now()),sim=bpRun(rs);
 let D=null;
 for(let t=0;t<=MAXD;t++){
 const bpT=sim.cumArr[t];
 if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]){D=t;break}}
-const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd],farm=b*Dd,dT=daysToTarget();
-// bp = voie gratuite seule, déduite de la même trajectoire : bp+bpVip1+bpVip2=bpFull toujours,
-// donc tot reste strictement égal à la somme des lignes affichées.
+const Dd=D===null?MAXD:D,dT=daysToTarget();
+let farm=b*Dd,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd];
+/* Affinage du jour D, match par match, à partir de l'état de fin du jour D-1 */
+if(D>=1){
+let{tier,xp,ss,vip,cum,vip1,vip2,k:kk}=sim.stArr[D-1];
+const n0=(D-1)*f,f0=(D-1)*b;
+const chk=m=>{const n=n0+m,fm=f0+Math.min(DAILY_CAP,m*CR_PER_FIGHT),o=opN(n),l=lgGain(cur+tr*n,1/0);
+return{fm,o,l,hit:fm+o[0]+l[0]+cum[0]>=need[0]&&o[1]+l[1]+cum[1]>=need[1]}};
+// m = 0 : reset éventuel + stock de missions de saison du jour
+if(rs.includes(D)){tier=0;xp=0;ss=0;vip=S.bpr;if(vip===2){cum=add3(cum,BP_V2);vip2=add3(vip2,BP_V2)}kk++}
+ss+=vip?BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_VIP:BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_F2P;
+const rate=vip?BP_SEASON_RATE_VIP:BP_SEASON_RATE_F2P;
+let m=0,r=chk(0);
+while(!r.hit&&m<f){
+m++;
+let g=m<=BP_DAILY_MISSION_MATCHES?BP_DAILY_MISSION_XP*BP_DAILY_MISSION_COUNT/BP_DAILY_MISSION_MATCHES:0;
+const c=Math.min(ss,rate);ss-=c;g+=c;
+if(vip===2)g*=BP_VIP2_BONUS;
+xp+=g;
+while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_REWARDS.find(x=>x[0]===tier);
+if(rw){const v=[rw[1],rw[2],rw[3]];cum=add3(cum,v);if(vip&&rw[4]){cum=add3(cum,v);vip1=add3(vip1,v)}}}
+r=chk(m)}
+farm=r.fm;op=r.o;lg=r.l;bpFull=cum;bpVip1=vip1;bpVip2=vip2;k=kk}
+// bp = voie gratuite seule : bp+bpVip1+bpVip2=bpFull toujours
 const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
 return{need,dc:h.T,dop,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
 
@@ -138,7 +161,7 @@ if(UI.m.t==='a')body=addForm();
 else{const c=byId(UI.m.id);if(!c){UI.m=null;m.className='';m.innerHTML='';return}body=charCard(c)}
 m.className='open';
 let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=down&&e.target===m;down=false;if(ok)closeM()};
-m.innerHTML=`<div>${body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
+m.innerHTML=`<div>${UI.m.t==='a'?body:body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
 /* ---- Chars de la boutique (masquée) : nom/image dérivés de CHARS via c.key ---- */
@@ -161,8 +184,8 @@ return `<div class="space-y-2 border-t border-mag/40 pt-2"><div class="text-xs">
 function fOpen(k){UI.f[k].o=!UI.f[k].o;render()}
 function fTog(k,t,v){const a=UI.f[k][t],i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);render()}
 function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
-<section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Mon Hangar</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}<button class="bubble add" onclick="openM('a')" aria-label="Ajouter un char"><span class="pl">+</span></button></div></section>`
-+`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} Chars</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
+<section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Mon Hangar</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
++`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} Chars</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="Créer un char"><span class="pl">+</span><b>Créer un char</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
 function addCat(key,to){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:1,mods:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);go()}
 function moveChar(id,to){const a=S.chars,i=a.findIndex(c=>c.id===id),ti=to==null?-1:a.findIndex(c=>c.id===to);if(i<0)return;const[c]=a.splice(i,1);a.splice(ti<0?a.length:ti,0,c);go()}
 function toggleFav(id){const a=S.chars,i=a.findIndex(c=>c.id===id);if(i<0)return;const c=a[i];c.fav=c.fav?0:1;a.splice(i,1);let j;if(c.fav){j=a.findIndex(x=>!x.fav);if(j<0)j=a.length}else j=a.reduce((m,x,k)=>x.fav?k+1:m,0);a.splice(j,0,c);go()}
@@ -188,8 +211,10 @@ if(d.on)DRGEND=Date.now();
 if(drop&&d.on){const t=document.elementFromPoint(d.x,d.y);if(!t)return;const tile=t.closest('[data-from="h"]'),hz=t.closest('#hangarZone');
 if(d.from==='s'){if(tile)addCat(d.key,+tile.dataset.drag);else if(hz)addCat(d.key)}
 else if(tile&&tile!==d.el)moveChar(+d.key,+tile.dataset.drag);else if(!tile&&hz)moveChar(+d.key,null);else if(!tile&&t.closest('#shopZone'))delChar(+d.key)}}
-function addForm(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><label class="text-xs block">Industriel<select onchange="D.ind=this.value"><option value="">—</option>${Object.entries(INDUSTRIES).map(([v,l])=>`<option value="${v}"${D.ind===v?' selected':''}>${l}</option>`).join('')}</select></label><label class="text-xs block">Classe<select onchange="D.cls=this.value"><option value="">—</option>${Object.entries(CLASSES).map(([v,[l]])=>`<option value="${v}"${D.cls===v?' selected':''}>${l}</option>`).join('')}</select></label><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
-<button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
+const dTagBtn=(t,v,l,col)=>`<button class="btn bev text-xs" data-t="${t}" data-v="${v}" ${D[t]===v?'style="background:#ff8a1f;color:#070e3a" ':''}onclick="dTag('${t}','${v}')">${col?`<span style="color:${col}">●</span> `:''}${l}</button>`;
+function dTag(t,v){D[t]=D[t]===v?'':v;document.querySelectorAll(`#dtags [data-t="${t}"]`).forEach(b=>{const on=b.dataset.v===D[t];b.style.background=on?'#ff8a1f':'';b.style.color=on?'#070e3a':''})}
+function addForm(){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="Fermer">✕</button><h2 class="text-mand text-sm pr-8">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><div id="dtags" class="space-y-2"><div class="text-xs">Industriel</div><div class="tags">${Object.entries(INDUSTRIES).map(([v,l])=>dTagBtn('ind',v,l)).join('')}</div><div class="text-xs">Classe</div><div class="tags">${Object.entries(CLASSES).map(([v,[l,c]])=>dTagBtn('cls',v,l,c)).join('')}</div></div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
+<button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer une image</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
 function previewImg(d){return `<img class="crop-16x10" src="${d}" alt="">`}
 function toCrop(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=480,H=300,w=im.width,h=im.height;let sx=0,sy=0,sw=w,sh=h;
 if(w/h>1.6){sw=h*1.6;sx=(w-sw)/2}else{sh=w/1.6;sy=(h-sh)/2}
@@ -217,8 +242,20 @@ function oLvl(k,v){const p=S.ops[k];if(v!==p.lvl)p.done=0;p.lvl=v;if(tgtOf(p)<v)
 function oTgt(k,v){const p=S.ops[k];p.tgt=Math.max(v,p.lvl);go()}
 function opDone(k){const p=S.ops[k],max=OP_MATCHES[p.lvl-1];if(max==null)return;const v=prompt('Combats effectués sur le niveau '+p.lvl+' (sur '+max+') :',p.done||0);if(v===null)return;p.done=Math.min(max,Math.max(0,parseInt(v)||0));go()}
 const kvDone=(k,p)=>p.lvl>=30?kv('Combats effectués','Niveau max'):`<div class="flex justify-between items-center"><span>Combats effectués (niv. ${p.lvl})</span><span class="flex items-center gap-1"><b class="text-mand">${Math.min(p.done||0,OP_MATCHES[p.lvl-1])} / ${OP_MATCHES[p.lvl-1]}</b><button class="text-xs opacity-60 px-1" onclick="opDone('${k}')" aria-label="Modifier les combats effectués">✎</button></span></div>`;
-function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this,0)" onchange="setTimeout(()=>oLvl('${k}',+this.value),0)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this,1)" onchange="setTimeout(()=>oTgt('${k}',+this.value),0)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b></div>`}
-function dualIn(el,w){const d=el.closest('.dual');const a=d.querySelector('.da'),b=d.querySelector('.db');let x=+a.value,y=+b.value;if(w===0&&x>y){b.value=x;y=x}if(w===1&&y<x){a.value=y;x=y}d.style.setProperty('--a',(x-1)/29*100+'%');d.style.setProperty('--b',(y-1)/29*100+'%');d.parentNode.querySelector('.dv').textContent=x+' → '+y}
+function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" data-k="${k}" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b></div>`}
+/* Curseurs superposés (niveau / objectif) : si les deux sont au même endroit au début du geste, le sens du déplacement décide
+   lequel bouge (gauche → curseur du niveau, droite → curseur de l'objectif) ; l'autre reste sur place. */
+let DUAL=null;
+document.addEventListener('pointerdown',e=>{const d=e.target.closest&&e.target.closest('.dual');if(!d)return;const a=d.querySelector('.da'),b=d.querySelector('.db');DUAL={d,tied:a.value===b.value,x0:+a.value}},true);
+const dualEnd=()=>{if(!DUAL)return;const d=DUAL.d;DUAL=null;setTimeout(()=>dualCommit(d),0)};
+document.addEventListener('pointerup',dualEnd);document.addEventListener('pointercancel',dualEnd);
+function dualIn(el){const d=el.closest('.dual'),a=d.querySelector('.da'),b=d.querySelector('.db'),w=el===a?0:1,v=+el.value;let x,y;
+if(DUAL&&DUAL.d===d&&DUAL.tied){const T=DUAL.x0;if(v<T){x=v;y=T}else if(v>T){x=T;y=v}else{x=y=T}}
+else{x=+a.value;y=+b.value;if(w===0&&x>y)y=x;if(w===1&&y<x)x=y}
+a.value=x;b.value=y;d.style.setProperty('--a',(x-1)/29*100+'%');d.style.setProperty('--b',(y-1)/29*100+'%');d.parentNode.querySelector('.dv').textContent=x+' → '+y}
+function dualCommit(d){const p=S.ops[d.dataset.k];if(!p)return;const x=+d.querySelector('.da').value,y=Math.max(+d.querySelector('.db').value,x);
+if(x===p.lvl&&y===tgtOf(p))return;
+if(x!==p.lvl)p.done=0;p.lvl=x;p.tgt=y;OP_SKILLS.forEach((k,i)=>{if(x<k[0])p.sk[i]=0});go()}
 function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}
 
 /* ---- Trophées : saisie unique, synchronisée sur les deux onglets ---- */

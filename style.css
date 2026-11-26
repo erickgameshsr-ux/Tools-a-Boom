@@ -63,3 +63,7 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .bubble.k-l{--halo:#7a5212}
 select{background:#070e3a;border:1px solid #b02bd6;padding:.4rem;width:100%;color:#fff}
 .op-card.op-off .op-bg img{bottom:auto;top:0}
+.tags{display:flex;gap:.5rem;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.tags::-webkit-scrollbar{display:none}
+.tags>*{flex:none;white-space:nowrap}
+.bubble.add b{white-space:normal;font-size:clamp(7px,10cqw,22px)}

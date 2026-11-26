@@ -27,6 +27,15 @@ const SIM={act:5,win:75,tw:15,tl:8,min:4,extra:1}; // Valeurs par défaut : comb
 const BP_RESET={dur:30,day:3,utcHour:9};
 // Bonus à l'activation du Battle Pass VIP niv2 : [Crédits, Crédits d'amél., Hypercrédits]
 const BP_V2=[20000,10000,50];
+// XP requise pour passer du palier N au palier N+1 (index 0 = palier 0→1 ... index 49 = palier 49→50)
+const BP_XP_REQ=[25,50,200,225,250,275,325,375,425,500,600,750,...Array(38).fill(950)];
+// Missions quotidiennes (reset chaque jour, non cumulables) : 3 missions de 275 XP réparties sur 5 matchs max (165 XP/match)
+const BP_DAILY_MISSION_XP=275,BP_DAILY_MISSION_COUNT=3,BP_DAILY_MISSION_MATCHES=5;
+// Missions de saison (ajoutées chaque jour, cumulables) : F2P 2×600 XP, VIP (niv.1 ou 2) 3×600 XP ; consommées à 120 (F2P) ou 180 (VIP) XP/match
+const BP_SEASON_MISSION_XP=600,BP_SEASON_MISSION_COUNT_F2P=2,BP_SEASON_MISSION_COUNT_VIP=3;
+const BP_SEASON_RATE_F2P=120,BP_SEASON_RATE_VIP=180;
+// Bonus de vitesse d'XP de Battle Pass quand le VIP niv.2 est actif
+const BP_VIP2_BONUS=1.2;
 const TROPHY_LEAGUE_REWARDS = [
   [10, 0, 500], [30, 500, 0], [110, 500, 0], [210, 500, 0], [270, 500, 0],
     [330, 500, 0], [440, 1500, 0], [600, 0, 1000], [720, 1500, 0], [850, 0, 1500],

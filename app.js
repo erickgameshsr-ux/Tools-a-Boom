@@ -55,22 +55,45 @@ const bpFull=()=>withV2(bpSum(()=>true,S.bpr),S.bpr);
 const nextReset=from=>{const d=new Date(from);let t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),bc('day'),bc('utcHour'));if(t<=from)t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,bc('day'),bc('utcHour'));return t};
 const resetDays=now=>{const a=[],st=bc('dur')*864e5;let r=nextReset(now);while((r-now)/864e5<=MAXD+bc('dur')){a.push(Math.ceil((r-now)/864e5));r+=st}return a};
 
+/* ---- Battle Pass : simulation jour par jour (paliers, missions quotidiennes/de saison, VIP) ----
+   Pour chaque jour t : missions quotidiennes (165 XP/match, 5 matchs max, non cumulables) + missions de saison
+   (stock cumulable, consommé à 120 XP/match en F2P ou 180 XP/match en VIP), bonus ×1,20 si VIP niv.2 actif.
+   L'XP fait franchir les paliers un par un (jusqu'au palier 50), et chaque palier franchi débloque sa récompense
+   BP_REWARDS (doublée si Standard actif sur la saison en cours). noVip=true simule la même chronologie sans VIP,
+   pour isoler la part du cumul qui vient du VIP (affichage "Battle Pass VIP"). */
+function bpRun(rs,noVip){
+const cumArr=new Array(MAXD+1),kArr=new Array(MAXD+1);
+let tier=S.bpl,xp=0,seasonStock=0,vip=noVip?0:S.bps,cum=[0,0,0],k=0,ri=0;
+for(let t=0;t<=MAXD;t++){
+while(ri<rs.length&&rs[ri]===t){tier=0;xp=0;seasonStock=0;vip=noVip?0:S.bpr;if(vip===2)cum=[cum[0]+BP_V2[0],cum[1]+BP_V2[1],cum[2]+BP_V2[2]];k++;ri++}
+const daily=Math.min(S.act,BP_DAILY_MISSION_MATCHES)*(BP_DAILY_MISSION_XP*BP_DAILY_MISSION_COUNT/BP_DAILY_MISSION_MATCHES);
+const seasonAdd=vip?BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_VIP:BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_F2P;
+seasonStock+=seasonAdd;
+const rate=vip?BP_SEASON_RATE_VIP:BP_SEASON_RATE_F2P;
+const consumed=Math.min(seasonStock,S.act*rate);
+seasonStock-=consumed;
+let gain=daily+consumed;
+if(vip===2)gain*=BP_VIP2_BONUS;
+xp+=gain;
+while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_REWARDS.find(r=>r[0]===tier);if(rw){const m=vip&&rw[4]?2:1;cum=[cum[0]+rw[1]*m,cum[1]+rw[2]*m,cum[2]+rw[3]*m]}}
+cumArr[t]=cum;kArr[t]=k}
+return{cumArr,kArr}}
+
 /* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses en Crédits ----
    Dépenses : chars (niveaux + modules) + aptitudes opérateurs
-   Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (reste du pass, puis pass complet à chaque reset) */
+   Récompenses : crédits journaliers (plafonnés) + opérateurs (étalés sur les matchs) + ligue (trophées gagnés) + Battle Pass (simulation XP/palier) */
 function calc(){
 const h=hangar(),dop=opNeed(),need=add(h.T,dop),os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur;
 const opAt=t=>{const x=M>0?Math.min(1,f*t/M):1;return[G[0]*x,G[1]*x]};
 const lgA=t=>lgGain(cur+pd*t,1/0);
-const bp0=bpRest(),bf=bpFull(),rs=resetDays(Date.now());
-let D=null,k=0;
+const rs=resetDays(Date.now()),sim=bpRun(rs,false),simNoVip=bpRun(rs,true);
+let D=null;
 for(let t=0;t<=MAXD;t++){
-while(k<rs.length&&rs[k]<=t)k++;
-if(b*t+opAt(t)[0]+lgA(t)[0]+bp0[0]+k*bf[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bp0[1]+k*bf[1]>=need[1]){D=t;break}}
-const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bp=[bp0[0]+k*bf[0],bp0[1]+k*bf[1]],farm=b*Dd,dT=daysToTarget();
-const bB=bpSum(r=>r[0]>S.bpl,0),fB=bpSum(()=>true,0),fT=bpSum(()=>true,S.bpr),rT=bpRest(),sb=(a,c)=>a.map((x,i)=>x-c[i]),v1r=sb(rT,bB),v1f=sb(fT,fB);
-const bpB=[bB[0]+k*fB[0],bB[1]+k*fB[1]],bpV1=[v1r[0]+k*v1f[0],v1r[1]+k*v1f[1]],bpV2=S.bpr===2?[k*BP_V2[0],k*BP_V2[1]]:[0,0];
-return{need,dc:h.T,dop,op,lg,bp,bpB,bpV1,bpV2,k,D,Dd,b,farm,tot:[farm+bp[0]+lg[0]+op[0],bp[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
+const bpT=sim.cumArr[t];
+if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]){D=t;break}}
+const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bp=sim.cumArr[Dd],k=sim.kArr[Dd],farm=b*Dd,dT=daysToTarget();
+const bpNoVip=simNoVip.cumArr[Dd],bpVip=[bp[0]-bpNoVip[0],bp[1]-bpNoVip[1],bp[2]-bpNoVip[2]];
+return{need,dc:h.T,dop,op,lg,bp,bpVip,k,D,Dd,b,farm,tot:[farm+bp[0]+lg[0]+op[0],bp[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -232,9 +255,9 @@ const col=(n,l)=>`<div><b class="text-mand">${fmt(n)} ${TRI} / ${l}</b><div clas
 $('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(pd,'j')}${col(pd*7,'sem')}${col(pd*30,'mois')}</div>`;
 $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1);
 const sep='<hr class="border-mag/40 my-1">';
-const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} BP complété${pl})`:'');
+const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bpB)+((c.bpV1[0]||c.bpV1[1])?row('Battle Pass VIP niv1',c.bpV1):'')+(S.bpr===2&&c.k?row(`Battle Pass VIP niv2 (+${c.k} abonnement${pl})`,c.bpV2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip[0]||c.bpVip[1]||c.bpVip[2])?bpLine('Battle Pass VIP',c.bpVip):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

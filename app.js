@@ -61,16 +61,19 @@ const resetDays=now=>{const a=[],st=BP_DUR*864e5;let r=nextReset(now);while((r-n
 function bpcSetRemaining(){const d=Math.max(0,+$('#bpcD').value||0),h=Math.max(0,+$('#bpcH').value||0);S.bpc={next:Date.now()+(d*24+h)*3600000};go()}
 
 /* ---- Battle Pass : simulation jour par jour (paliers, missions quotidiennes/de saison, VIP) ----
-   Pour chaque jour t : missions quotidiennes (165 XP/match, 5 matchs max, non cumulables) + missions de saison
-   (stock cumulable, consommé à 120 XP/match en F2P ou 180 XP/match en VIP), bonus ×1,20 si VIP niv.2 actif.
-   L'XP fait franchir les paliers un par un (jusqu'au palier 50), et chaque palier franchi débloque sa récompense
-   BP_REWARDS (doublée si Standard actif sur la saison en cours). noVip=true simule la même chronologie sans VIP,
-   pour isoler la part du cumul qui vient du VIP (affichage "Battle Pass VIP"). */
-function bpRun(rs,noVip){
-const cumArr=new Array(MAXD+1),kArr=new Array(MAXD+1);
-let tier=S.bpl,xp=0,seasonStock=0,vip=noVip?0:S.bps,cum=[0,0,0],k=0,ri=0;
-for(let t=0;t<=MAXD;t++){
-while(ri<rs.length&&rs[ri]===t){tier=0;xp=0;seasonStock=0;vip=noVip?0:S.bpr;if(vip===2)cum=[cum[0]+BP_V2[0],cum[1]+BP_V2[1],cum[2]+BP_V2[2]];k++;ri++}
+   Une seule progression, au rythme réel du joueur (missions de saison à 3/jour si VIP sinon 2/jour, bonus ×1,20
+   d'XP si VIP niv.2) : les paliers franchis sont donc rigoureusement les mêmes, qu'on soit VIP ou non — il n'y a
+   qu'une trajectoire d'XP possible pour un joueur donné. Pour chaque palier franchi, sa récompense BP_REWARDS est
+   ventilée a posteriori en trois parts : cum = somme complète (gratuite + VIP niv.1 + VIP niv.2) ; vip1 = le
+   doublement du Battle Pass payant (×1 supplémentaire) sur les paliers qui le permettent ; vip2 = le seul bonus
+   immédiat d'activation du VIP niv.2 (BP_V2). La part gratuite affichée ("Battle Pass") se déduit toujours de
+   cum-vip1-vip2, sans seconde simulation : bp+vip1+vip2 = cum, exactement. */
+function bpRun(rs){
+const cumArr=new Array(MAXD+1),vip1Arr=new Array(MAXD+1),vip2Arr=new Array(MAXD+1),kArr=new Array(MAXD+1);
+let tier=S.bpl,xp=0,seasonStock=0,vip=S.bps,cum=[0,0,0],vip1=[0,0,0],vip2=[0,0,0],k=0,ri=0;
+cumArr[0]=[0,0,0];vip1Arr[0]=[0,0,0];vip2Arr[0]=[0,0,0];kArr[0]=0; // t=0 : aucune journée de jeu écoulée, donc aucune XP de mission encore gagnée
+for(let t=1;t<=MAXD;t++){
+while(ri<rs.length&&rs[ri]===t){tier=0;xp=0;seasonStock=0;vip=S.bpr;if(vip===2){cum=[cum[0]+BP_V2[0],cum[1]+BP_V2[1],cum[2]+BP_V2[2]];vip2=[vip2[0]+BP_V2[0],vip2[1]+BP_V2[1],vip2[2]+BP_V2[2]]}k++;ri++}
 const daily=Math.min(S.act,BP_DAILY_MISSION_MATCHES)*(BP_DAILY_MISSION_XP*BP_DAILY_MISSION_COUNT/BP_DAILY_MISSION_MATCHES);
 const seasonAdd=vip?BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_VIP:BP_SEASON_MISSION_XP*BP_SEASON_MISSION_COUNT_F2P;
 seasonStock+=seasonAdd;
@@ -80,9 +83,9 @@ seasonStock-=consumed;
 let gain=daily+consumed;
 if(vip===2)gain*=BP_VIP2_BONUS;
 xp+=gain;
-while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_REWARDS.find(r=>r[0]===tier);if(rw){const m=vip&&rw[4]?2:1;cum=[cum[0]+rw[1]*m,cum[1]+rw[2]*m,cum[2]+rw[3]*m]}}
-cumArr[t]=cum;kArr[t]=k}
-return{cumArr,kArr}}
+while(tier<BP_MAX&&xp>=BP_XP_REQ[tier]){xp-=BP_XP_REQ[tier];tier++;const rw=BP_REWARDS.find(r=>r[0]===tier);if(rw){cum=[cum[0]+rw[1],cum[1]+rw[2],cum[2]+rw[3]];if(vip&&rw[4]){cum=[cum[0]+rw[1],cum[1]+rw[2],cum[2]+rw[3]];vip1=[vip1[0]+rw[1],vip1[1]+rw[2],vip1[2]+rw[3]]}}}
+cumArr[t]=cum;vip1Arr[t]=vip1;vip2Arr[t]=vip2;kArr[t]=k}
+return{cumArr,vip1Arr,vip2Arr,kArr}}
 
 /* ---- Bilan : simulation jour par jour jusqu'à couvrir les dépenses en Crédits ----
    Dépenses : chars (niveaux + modules) + aptitudes opérateurs
@@ -91,17 +94,16 @@ function calc(){
 const h=hangar(),dop=opNeed(),need=add(h.T,dop),os=opSum(),G=os.g,M=os.m,f=S.act,b=crDay(),pd=perDay(),cur=S.lg.cur;
 const opAt=t=>{const x=M>0?Math.min(1,f*t/M):1;return[G[0]*x,G[1]*x]};
 const lgA=t=>lgGain(cur+pd*t,1/0);
-const rs=resetDays(Date.now()),sim=bpRun(rs,false),simNoVip=bpRun(rs,true);
+const rs=resetDays(Date.now()),sim=bpRun(rs);
 let D=null;
 for(let t=0;t<=MAXD;t++){
 const bpT=sim.cumArr[t];
 if(b*t+opAt(t)[0]+lgA(t)[0]+bpT[0]>=need[0]&&opAt(t)[1]+lgA(t)[1]+bpT[1]>=need[1]){D=t;break}}
-const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpF2P=simNoVip.cumArr[Dd],k=sim.kArr[Dd],farm=b*Dd,dT=daysToTarget();
-const bpVip=[bpFull[0]-bpF2P[0],bpFull[1]-bpF2P[1],bpFull[2]-bpF2P[2]];
-// bp = voie F2P uniquement (affichée sur la ligne "Battle Pass") ; bpVip = tout le surplus dû au VIP (voie haute doublée,
-// bonus immédiats VIP niv.2, paliers supplémentaires via missions VIP et bonus d'XP). bp+bpVip=bpFull, donc tot (basé sur
-// bpFull) reste toujours strictement égal à la somme des lignes affichées (Crédits journalier + Battle Pass + Battle Pass VIP + Ligue + Opérateur).
-return{need,dc:h.T,dop,op,lg,bp:bpF2P,bpVip,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
+const Dd=D===null?MAXD:D,op=opAt(Dd),lg=lgA(Dd),bpFull=sim.cumArr[Dd],bpVip1=sim.vip1Arr[Dd],bpVip2=sim.vip2Arr[Dd],k=sim.kArr[Dd],farm=b*Dd,dT=daysToTarget();
+// bp = voie gratuite seule, déduite de la même trajectoire : bp+bpVip1+bpVip2=bpFull toujours,
+// donc tot reste strictement égal à la somme des lignes affichées.
+const bp=[bpFull[0]-bpVip1[0]-bpVip2[0],bpFull[1]-bpVip1[1]-bpVip2[1],bpFull[2]-bpVip1[2]-bpVip2[2]];
+return{need,dc:h.T,dop,op,lg,bp,bpVip1,bpVip2,k,D,Dd,b,farm,tot:[farm+bpFull[0]+lg[0]+op[0],bpFull[1]+lg[1]+op[1]],dT,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
 const openM=(t,id)=>{UI.m=t==='c'?{t:'c',id}:{t:'a'};render()};
@@ -266,7 +268,7 @@ $('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',
 const sep='<hr class="border-mag/40 my-1">';
 const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
 e.innerHTML=row('Dépenses Chars',c.dc)+row('Dépenses Opérateurs',c.dop)+row('Dépenses Total',c.need,1)+sep
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip[0]||c.bpVip[1])?row('Battle Pass VIP',c.bpVip):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
++row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+sep
 +kv('Temps Total de jeu estimé',c.D===null?'plus de 10 ans':c.D+' j')}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';

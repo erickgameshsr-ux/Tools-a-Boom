@@ -22,7 +22,9 @@ const boxes=(L,lvl,ck,cb,p)=>`<div class="grid gap-1" style="grid-template-colum
 const dBoxes=()=>boxes(MODS,D.lvl,D.mods,i=>`D.mods[${i}]=+this.checked`,'M');
 
 /* ---- Calculs de base ---- */
-function hangar(){let L=Z,M=Z;S.chars.forEach(c=>{if(!c.fav)return;L=add(L,sumP(LEVEL_COSTS.slice(c.lvl-1)));MODS.forEach((m,i)=>{if(!c.mods[i])M=add(M,[m[1],0])})});return{L,M,T:add(L,M)}}
+const is100=c=>c.lvl>=20&&MODS.every((m,i)=>c.mods[i]);
+const hangarList=()=>{const favs=S.chars.filter(c=>c.fav);return favs.length?favs:S.chars.filter(c=>!is100(c))};
+function hangar(){let L=Z,M=Z;hangarList().forEach(c=>{L=add(L,sumP(LEVEL_COSTS.slice(c.lvl-1)));MODS.forEach((m,i)=>{if(!c.mods[i])M=add(M,[m[1],0])})});return{L,M,T:add(L,M)}}
 const owned=()=>Object.keys(OPS).filter(k=>S.ops[k].own);
 const tgtOf=p=>Math.max(p.tgt||30,p.lvl);
 const skLeft=p=>OP_SKILLS.reduce((t,a,i)=>p.sk[i]||a[0]>tgtOf(p)?t:t+a[1],0);
@@ -50,10 +52,13 @@ function proj(d){const gain=Math.min(Math.max(0,S.lg.tgt-S.lg.cur),perDay()*d),e
 
 /* ---- Battle Pass : pass complet et réinitialisation mensuelle ---- */
 const MAXD=3650,MAXACT=99;
-const bc=k=>S.bpc?.[k]??BP_RESET[k];
 const bpFull=()=>withV2(bpSum(()=>true,S.bpr),S.bpr);
-const nextReset=from=>{const d=new Date(from);let t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),bc('day'),bc('utcHour'));if(t<=from)t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,bc('day'),bc('utcHour'));return t};
-const resetDays=now=>{const a=[],st=bc('dur')*864e5;let r=nextReset(now);while((r-now)/864e5<=MAXD+bc('dur')){a.push(Math.ceil((r-now)/864e5));r+=st}return a};
+/* Réinitialisation du Battle Pass : durée fixe BP_DUR (30 j), toujours à 9h UTC+0 (heure serveur).
+   S.bpc.next (horodatage ms) est la prochaine réinitialisation telle que calibrée par le joueur (voir bpcSetRemaining) ;
+   tant qu'il n'a rien calibré, on retombe sur la prochaine occurrence de 9h UTC à partir de maintenant. */
+const nextReset=from=>{if(S.bpc?.next){let t=S.bpc.next;while(t<=from)t+=BP_DUR*864e5;return t}const d=new Date(from);let t=Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),9,0);if(t<=from)t+=864e5;return t};
+const resetDays=now=>{const a=[],st=BP_DUR*864e5;let r=nextReset(now);while((r-now)/864e5<=MAXD+BP_DUR){a.push(Math.ceil((r-now)/864e5));r+=st}return a};
+function bpcSetRemaining(){const d=Math.max(0,+$('#bpcD').value||0),h=Math.max(0,+$('#bpcH').value||0);S.bpc={next:Date.now()+(d*24+h)*3600000};go()}
 
 /* ---- Battle Pass : simulation jour par jour (paliers, missions quotidiennes/de saison, VIP) ----
    Pour chaque jour t : missions quotidiennes (165 XP/match, 5 matchs max, non cumulables) + missions de saison
@@ -220,13 +225,14 @@ function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[
 const TRI=ic('trophy.png');
 const CYC='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 function statsHtml(){const v=k=>gs(k),mm=matchMin();const inp=(k,l,step,val)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="${step}" min="0" value="${val}" style="width:6rem" onchange="statsIn('${k}',this.value)"></label>`;
-const det=`<div class="space-y-2 border-t border-mag/40 pt-2"><div id="crp" class="text-sm text-right"></div>
+const det=`<div class="space-y-2 border-t border-mag/40 pt-2">
 ${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / match gagnant','0.1',v('tw'))}${inp('tl','Trophées / match perdu','0.1',v('tl'))}
 <div class="flex justify-between text-sm"><span>Trophées / match (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
 <button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></div>`;
 return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Statistiques de Matchs</h2>
 <div class="flex items-center gap-2 text-xs"><span class="w-28">Matchs / jour</span><input id="actS" type="range" min="1" max="${MAXACT}" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
 <div class="flex items-center gap-2 text-xs"><span class="w-28">Temps de jeu / j</span><input id="timeS" type="range" min="${mm}" max="${MAXACT*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-20 text-right">${hm(S.act*mm)}</b></div>
+<div id="crp" class="text-sm text-right"></div>
 <button class="btn bev w-full text-xs" onclick="toggleT('s')">${UI.t.s?'▲ Masquer les statistiques':'▼ Détails des statistiques'}</button>${UI.t.s?det:''}</section>`}
 function statsRefresh(){const b=$('#statsBlock');if(S.tab===2&&b){b.outerHTML=statsHtml();upd3();return}render()}
 function statsIn(k,v){const n=+v;if(!(n>=0)||v==='')return;S.stats[k]=k==='win'?Math.min(100,n):n;save();statsRefresh()}
@@ -266,10 +272,10 @@ function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${
 if(S.tab>3)S.tab=0;
 $('#app').innerHTML=[vHangar,vOps,vEval,vSet][S.tab]();[,,upd3][S.tab]?.();renderModal()}
 function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde</h2><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer</button></div></section>`}
-function bpSetHtml(){const inp=(k,l,mn,mx)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="1" min="${mn}" max="${mx}" value="${bc(k)}" style="width:6rem" onchange="bpcIn('${k}',this.value,${mn},${mx})"></label>`;
-return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>${inp('dur','Durée d\'un Battle Pass (jours)',1,365)}${inp('day','Jour de réinitialisation (du mois)',1,28)}${inp('utcHour','Heure de réinitialisation (UTC+0)',0,23)}<button class="btn bev text-xs" onclick="bpcReset()">Rétablir les valeurs par défaut</button></section>`}
-function bpcIn(k,v,mn,mx){const n=Math.round(+v);if(v===''||!(n>=mn))return;S.bpc={...BP_RESET,...S.bpc,[k]:Math.min(mx,n)};go()}
-function bpcReset(){S.bpc={...BP_RESET};go()}
+function bpSetHtml(){const ms=nextReset(Date.now())-Date.now(),dd=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5);
+return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>
+<p class="text-xs opacity-70">Durée fixe de 30 jours, réinitialisation à 9h (heure serveur, UTC+0). Indiquez le temps restant avant la fin du Battle Pass en cours pour synchroniser le site.</p>
+<div class="flex gap-2"><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Jours restants</span><input id="bpcD" type="number" step="1" min="0" max="30" value="${dd}" style="width:5rem" onchange="bpcSetRemaining()"></label><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Heures restantes</span><input id="bpcH" type="number" step="1" min="0" max="23" value="${hh}" style="width:5rem" onchange="bpcSetRemaining()"></label></div></section>`}
 function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Affichage</h2><div class="text-xs">Icônes par ligne</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
 function setCols(n){S.cols=n;go()}
 function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${dispHtml()}${bpSetHtml()}${ioHtml()}`}

@@ -3,8 +3,11 @@
 const LEVEL_COSTS=[[100,45],[225,110],[405,195],[640,310],[930,450],[1280,615],[1680,810],[2140,1130],[2655,1280],[3225,1555],[3860,1860],[4545,2190],[5290,2550],[6095,2935],[6955,3350],[7880,3795],[8855,4265],[9895,4765],[10995,5295]];
 // Modules : [niveau requis, coût en Crédits]
 const MODS=[[5,5000],[9,10500],[13,8400],[17,10500],[20,14000]];
-// Chars du jeu (« boutique » masquée, à glisser dans le Hangar) : [nom d'origine = nom du fichier assets/<nom>.webp, traduction FR ou '']
-const CHARS=[['Vulcan','Vulcain'],['Unstoppable','Imparable'],['SWRD-11','ÉPÉE-11'],['STLETT-0',''],['RAZR-9',''],['Powerhouse','Fracasseur'],['Phobos',''],['Permafrost','Pergélisol'],['Obsidian','Obsidienne'],['MSTR-102',''],['Mjolnir',''],['Mars',''],['Kratos',''],['Inevitable','Inéluctable'],['Hurricane',''],['HTCHT-12','HATCH-12'],['Heracles','Héraclès'],['HAMR-7','MART-7'],['Earthshaker',''],['Destroyer','Destructeur'],['Chromite',''],['Adamant','Adamantin']];
+// Industriels et classes des chars (codes utilisés dans CHARS) ; couleur = pastille des filtres
+const INDUSTRIES={a:'ARES',b:'BASALTIC',i:'IMPACT',u:'UNION'};
+const CLASSES={r:['Rare','#4aa3ff'],e:['Épique','#b66cff'],l:['Légendaire','#ffc233']};
+// Chars du jeu (« boutique » masquée, à glisser dans le Hangar) : [nom d'origine = nom du fichier assets/<nom>.webp, traduction FR ou '', industriel, classe]
+const CHARS=[['Vulcan','Vulcain','b','l'],['Unstoppable','Imparable','u','l'],['SWRD-11','ÉPÉE-11','i','l'],['STLETT-0','','i','e'],['RAZR-9','','i','e'],['Powerhouse','Fracasseur','u','l'],['Phobos','','a','e'],['Permafrost','Pergélisol','b','r'],['Obsidian','Obsidienne','b','e'],['MSTR-102','','i','e'],['Mjolnir','','a','l'],['Mars','','a','l'],['Kratos','','a','e'],['Inevitable','Inéluctable','u','r'],['Hurricane','','u','e'],['HTCHT-12','HATCH-12','i','r'],['Heracles','Héraclès','a','r'],['HAMR-7','MART-7','i','l'],['Earthshaker','','u','e'],['Destroyer','Destructeur','u','e'],['Chromite','','b','e'],['Adamant','Adamantin','b','l']];
 // Opérateurs : prix en Hypercrédits (0 = débloquée par défaut)
 const OPS={mia:{n:'Mia',price:0},hank:{n:'Hank',price:299},serra:{n:'Serra',price:299}};
 // Matchs requis pour passer du niveau N au niveau N+1 (index 0 = niveau 1 → 2)

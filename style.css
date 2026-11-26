@@ -8,7 +8,7 @@ input[type=checkbox]{accent-color:#b02bd6;width:1.2rem;height:1.2rem}
 input[type=number],input[type=text],textarea{background:#070e3a;border:1px solid #b02bd6;padding:.4rem;width:100%;color:#fff}
 button:focus-visible,input:focus-visible{outline:2px solid #ff8a1f}
 .bubble{touch-action:manipulation;--fr:6.5cqw;container-type:inline-size;position:relative;isolation:isolate;width:100%;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;background:none;border:0;padding:4px;overflow:hidden;cursor:pointer}
-.bubble::before{content:"";position:absolute;inset:var(--fr);background:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px) 0 0/12.5% 12.5%,linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/12.5% 12.5%,linear-gradient(160deg,#26304d,#171e33);z-index:-2}
+.bubble::before{content:"";position:absolute;inset:var(--fr);background:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px) 0 0/12.5% 12.5%,linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px) 0 0/12.5% 12.5%,radial-gradient(circle at 50% 48%,var(--halo,#26304d) 0%,#0a1131 80%);z-index:-2}
 .bubble .art{position:absolute;inset:var(--fr);background-position:center;background-repeat:no-repeat;background-size:contain;transform:scale(.93);z-index:-1}
 .bubble::after{content:"";position:absolute;inset:0;background:url(assets/frametank.png) center/100% 100% no-repeat;pointer-events:none;z-index:1}
 .bubble>b,.bubble>small{position:relative;z-index:2}
@@ -58,3 +58,8 @@ body.dragging{user-select:none;-webkit-user-select:none}
 .drop-on{outline:2px dashed #ff8a1f;outline-offset:-4px}
 .bubble .pl{font-size:50cqw;line-height:1}
 .bubble .fav-b{position:absolute;top:var(--fr);right:var(--fr);color:#ff8a1f;font-size:clamp(9px,16cqw,30px);line-height:1;z-index:2;text-shadow:0 1px 3px #000}
+.bubble.k-r{--halo:#2a4d7d}
+.bubble.k-e{--halo:#4b2a85}
+.bubble.k-l{--halo:#7a5212}
+select{background:#070e3a;border:1px solid #b02bd6;padding:.4rem;width:100%;color:#fff}
+.op-card.op-off .op-bg img{bottom:auto;top:0}

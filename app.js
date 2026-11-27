@@ -206,6 +206,7 @@ if(!UI.m){m.className='';m.innerHTML='';m.onclick=null;return}
 let body;
 if(UI.m.t==='a')body=addForm();
 else if(UI.m.t==='i')body=aboutHtml();
+else if(UI.m.t==='n')body=infoHtml(UI.m.k);
 else if(UI.m.t==='p'){if(!P){UI.m=null;m.className='';m.innerHTML='';return}body=pCard()}
 else{const c=byId(UI.m.id);if(!c){UI.m=null;m.className='';m.innerHTML='';return}body=charCard(c)}
 m.className='open';
@@ -233,8 +234,8 @@ return `<div class="space-y-2 border-t border-mag/40 pt-2"><div class="text-xs">
 function fOpen(k){UI.f[k].o=!UI.f[k].o;render()}
 function fTog(k,t,v){const a=UI.f[k][t],i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);render()}
 function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">${t('total')}</h2>${row(t('levels'),h.L)}${row(t('modules'),h.M)}${row(t('total_full'),h.T,1)}</section>
-<section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">${t('my_hangar')}</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
-+`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} ${t('chars')}</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="${t('create_char')}"><span class="pl">+</span><b>${t('create_char')}</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
+<section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">${t('my_hangar')}</h2><span class="flex items-center">${infoBtn('info_hangar')}${fBtn('h')}</span></div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
++`<div id="shopZone" class="space-y-3"><div class="flex items-center gap-1"><button class="btn bev flex-1" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} ${t('chars')}</button>${infoBtn('info_shop')}</div>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="${t('create_char')}"><span class="pl">+</span><b>${t('create_char')}</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
 function addCat(key,to,open,cfg){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:cfg?cfg.lvl:1,mods:cfg?[...cfg.mods]:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);P=null;UI.m=open?{t:'c',id:n.id}:null;go()}
 /* Carte de configuration d'un char de la boutique (clic) : le char n'est ajouté au hangar qu'au clic sur « Ajouter » */
 function pCard(){const c={key:P.key,lvl:P.lvl,mods:P.mods,fav:0},nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0),lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
@@ -290,7 +291,7 @@ function delChar(id){if(confirm(t(byId(id)?.key?'confirm_rm_char_key':'confirm_d
 /* ---- Onglet 2 : Opérateurs ---- */
 /* Total des opérateurs pris en compte (opList) : progression des acquis + prix de déblocage (HC) des non acquis */
 function opSum(){const t=owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0});return{...t,h:opHC()}}
-function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">${t('total')}</h2>${row(t('op_rewards_left'),o.g)}${row(t('skills_cost_left'),o.a)}${o.h?row(t('unlock_ops'),[0,0,o.h]):''}${netLine(t('net_rewards_left'),o.a[0]-o.g[0],CR)}${kv(t('matches_left'),fmt(o.m))}${kv(t('est_time'),hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,tg=tgtOf(p),inL=opList().includes(k);
+function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1">${hdr(t('total'),'info_op_total')}${row(t('op_rewards_left'),o.g)}${row(t('skills_cost_left'),o.a)}${o.h?row(t('unlock_ops'),[0,0,o.h]):''}${netLine(t('net_rewards_left'),o.a[0]-o.g[0],CR)}${kv(t('matches_left'),fmt(o.m))}${kv(t('est_time'),hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,tg=tgtOf(p),inL=opList().includes(k);
 const body=p.own?`${dualSlider(k,p.lvl,tg)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv(tp('matches_to',tg),fmt(m))}${kvDone(k,p)}${row(t('op_rewards_left'),r.g)}${row(t('skills_cost_left'),r.a)}</div>${inL?'':'<p class="text-xs opacity-60">'+t('excl_fav')+'</p>'}`:`<p class="text-sm opacity-60">${tp(inL?'not_owned':'not_owned_x',o.price,HC)}</p>`;
 return `<section class="card bev op-card p-3 space-y-2${p.own?'':' op-off'}"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${opName(k)}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> ${t('owned')} (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">'+t('free')+'</span>'}</div><button class="${p.fav?'text-mand':'text-mag'}" onclick="oFav('${k}')" aria-label="${t('fav')}" aria-pressed="${!!p.fav}">${STAR(p.fav)}</button></div>${body}</section>`}).join('')}
 function oFav(k){S.ops[k].fav=S.ops[k].fav?0:1;go()}
@@ -299,7 +300,7 @@ function oLvl(k,v){const p=S.ops[k];if(v!==p.lvl)p.done=0;p.lvl=v;if(tgtOf(p)<v)
 function oTgt(k,v){const p=S.ops[k];p.tgt=Math.max(v,p.lvl);go()}
 function opDone(k){const p=S.ops[k],max=OP_MATCHES[p.lvl-1];if(max==null)return;const v=prompt(tp('done_prompt',p.lvl,max),p.done||0);if(v===null)return;p.done=Math.min(max,Math.max(0,parseInt(v)||0));go()}
 const kvDone=(k,p)=>p.lvl>=30?kv(t('done'),t('max_level')):`<div class="flex justify-between items-center"><span>${tp('done_lvl',p.lvl)}</span><span class="flex items-center gap-1"><b class="text-mand">${Math.min(p.done||0,OP_MATCHES[p.lvl-1])} / ${OP_MATCHES[p.lvl-1]}</b><button class="text-xs opacity-60 px-1" onclick="opDone('${k}')" aria-label="${t('edit_done')}">✎</button></span></div>`;
-function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" data-k="${k}" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b></div>`}
+function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" data-k="${k}" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b>${infoBtn('info_op_card')}</div>`}
 /* Curseurs superposés (niveau / objectif) : si les deux sont au même endroit au début du geste, le sens du déplacement décide
    lequel bouge (gauche → curseur du niveau, droite → curseur de l'objectif) ; l'autre reste sur place. */
 let DUAL=null;
@@ -321,7 +322,7 @@ const trophyTgt=()=>`<label class="text-xs">${t('tgt_trophies')}<input data-lg="
 function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
 
 /* ---- Ressources actuelles : capital déjà en banque (t = 0), saisie sans reconstruction de la page ---- */
-const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('current_res')}</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,t('cur_cr')],[1,AM,t('cur_up')],[2,HC,t('cur_hc')]].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" max="${RES_MAX}" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
+const resCard=()=>`<section class="card bev p-3 space-y-2">${hdr(t('current_res'),'info_res')}<div class="grid grid-cols-3 gap-2">${[[0,CR,t('cur_cr')],[1,AM,t('cur_up')],[2,HC,t('cur_hc')]].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" max="${RES_MAX}" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
 function resIn(i,v){S.res[i]=clampRes(v);document.querySelectorAll(`[data-res="${i}"]`).forEach(e=>{if(+e.value>RES_MAX)e.value=RES_MAX});save();upd3()}
 
 /* ---- Onglet 3 : Récompenses ---- */
@@ -332,7 +333,7 @@ const det=`<div class="space-y-2 border-t border-mag/40 pt-2">
 ${inp('min',t('avg_match_min'),'0.01',v('min'))}${inp('win',t('win_rate'),'0.01',v('win'))}${inp('tw',t('tr_win'),'0.1',v('tw'))}${inp('tl',t('tr_loss'),'0.1',v('tl'))}
 <div class="flex justify-between text-sm"><span>${t('tr_avg')}</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
 <button class="btn bev text-xs" onclick="statsReset()">${t('reset_defaults')}</button></div>`;
-return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('match_stats')}</h2>
+return `<section id="statsBlock" class="card bev p-3 space-y-2">${hdr(t('match_stats'),'info_stats')}
 <div class="flex items-center gap-2 text-xs"><span class="w-28">${t('matches_day')}</span><input id="actS" type="range" min="1" max="${MAXACT}" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
 <div class="flex items-center gap-2 text-xs"><span class="w-28">${t('play_time_day')}</span><input id="timeS" type="range" min="${mm}" max="${MAXACT*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-20 text-right">${hm(S.act*mm)}</b></div>
 <div id="crp" class="text-sm text-right"></div>
@@ -344,11 +345,11 @@ function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.ac
 function vEval(){const ms=nextReset(Date.now())-Date.now(),nr=`${Math.floor(ms/864e5)}${t('unit_d')} ${Math.floor(ms%864e5/36e5)}${t('unit_h')}`;
 const vip=(n,l)=>`<div class="flex items-center gap-2"><label class="flex items-center gap-2 text-sm flex-1"><input type="checkbox" ${S.bps===n?'checked':''} onchange="bpStd(${n},this.checked)"> ${l}</label><button class="cycle-btn ${S.bpr===n?'on':''}" onclick="bpRec(${n})" aria-pressed="${S.bpr===n}" aria-label="${t('recurrence')} ${l}" title="${t('recurrence')}">${CYC}</button></div>`;
 return statsHtml()
-+`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('league')}</h2>${trophyCur()}<div id="rate" class="text-sm"></div>
++`<section class="card bev p-3 space-y-2">${hdr(t('league'),'info_league')}${trophyCur()}<div id="rate" class="text-sm"></div>
 <button class="btn bev w-full text-xs" onclick="toggleT('l')">${UI.t.l?'▲ '+t('hide_calc'):'▼ '+t('calc_tgt')}</button>${UI.t.l?`<div class="space-y-2 border-t border-mag/40 pt-2">${trophyTgt()}<div id="lgr" class="text-sm space-y-1"></div></div>`:''}</section>`
-+`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">${t('battle_pass')}</h2><span class="text-xs text-mand font-bold">${nr}</span></div>${bpSlider()}${vip(1,t('bp_vip1'))}${vip(2,t('bp_vip2'))}<div id="bpr" class="text-sm space-y-1"></div></section>`
++`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">${t('battle_pass')}</h2><span class="flex items-center gap-1">${infoBtn('info_bp')}<span class="text-xs text-mand font-bold">${nr}</span></span></div>${bpSlider()}${vip(1,t('bp_vip1'))}${vip(2,t('bp_vip2'))}<div id="bpr" class="text-sm space-y-1"></div></section>`
 +resCard()
-+`<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">${t('farm_est')}</h2><div id="net" class="text-sm space-y-1"></div></section>`}
++`<section class="card bev p-3 space-y-1">${hdr(t('farm_est'),'info_farm')}<div id="net" class="text-sm space-y-1"></div></section>`}
 function applyAct(n){S.act=Math.max(1,Math.min(MAXACT,Math.round(n)||1));save();const mm=matchMin(),a=$('#actS'),t=$('#timeS'),av=$('#actV'),tv=$('#timeV');if(a)a.value=S.act;if(t)t.value=S.act*mm;if(av)av.textContent=S.act;if(tv)tv.textContent=hm(S.act*mm);upd3()}
 function actSync(v){applyAct(+v)}
 function timeSync(v){applyAct((+v)/matchMin())}
@@ -393,13 +394,19 @@ function render(){$('#nav').innerHTML=TABS.map((tb,i)=>`<button onclick="S.tab=$
 if(S.tab>3)S.tab=0;
 document.documentElement.lang=S.lang;const ib=$('#infoBtn');if(ib){ib.setAttribute('aria-label',t('about_title'));ib.title=t('about_title')}
 $('#app').innerHTML=[vHangar,vOps,vEval,vSet][S.tab]();[,,upd3][S.tab]?.();renderModal()}
-function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('backup')}</h2><div class="flex gap-2"><button class="btn bev" onclick="expZip()">${t('export')}</button><button class="btn bev" onclick="pickFile('.zip',impZip)">${t('import')}</button></div></section>`}
+function ioHtml(){return `<section class="card bev p-3 space-y-2">${hdr(t('backup'),'info_save')}<div class="flex gap-2"><button class="btn bev" onclick="expZip()">${t('export')}</button><button class="btn bev" onclick="pickFile('.zip',impZip)">${t('import')}</button></div></section>`}
 function bpSetHtml(){const ms=nextReset(Date.now())-Date.now(),dd=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5);
 return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('battle_pass')}</h2>
 <p class="text-xs opacity-70">${t('bp_set_desc')}</p>
 <div class="flex gap-2"><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>${t('days_left')}</span><input id="bpcD" type="number" step="1" min="0" max="30" value="${dd}" style="width:5rem" onchange="bpcSetRemaining()"></label><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>${t('hours_left')}</span><input id="bpcH" type="number" step="1" min="0" max="23" value="${hh}" style="width:5rem" onchange="bpcSetRemaining()"></label></div></section>`}
 function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('icons_panel')}</h2><div class="text-xs">${t('icons_per_row')}</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
 function setCols(n){S.cols=n;go()}
+/* ---- Boutons d'information contextuels (icône « i » identique au bouton À propos) ---- */
+const INFO_SVG='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><line x1="12" y1="11" x2="12" y2="17"/><circle cx="12" cy="7.5" r=".6" fill="currentColor"/></svg>';
+const infoBtn=key=>`<button type="button" class="text-mand opacity-80 p-1 shrink-0" onclick="event.stopPropagation();showInfo('${key}')" aria-label="${esc(t(key+'_t'))}" title="${esc(t(key+'_t'))}">${INFO_SVG}</button>`;
+const hdr=(title,key)=>`<div class="flex justify-between items-center"><h2 class="text-mand text-sm">${title}</h2>${infoBtn(key)}</div>`;
+const showInfo=key=>{UI.m={t:'n',k:key};render()};
+function infoHtml(k){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="${t('close')}">✕</button><h2 class="text-mand text-sm pr-8">${t(k+'_t')}</h2><p class="text-sm">${t(k+'_b')}</p></section>`}
 function aboutHtml(){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="${t('close')}">✕</button><h2 class="text-mand text-sm pr-8">${t('about_title')}</h2>
 <p class="text-xs font-bold">${t('about_copy')}</p>
 <p class="text-xs opacity-70">${t('about_desc')}</p>

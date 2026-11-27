@@ -3,14 +3,15 @@ const KEY='tab_companion_v1';
 const ic=f=>`<img src="assets/${f}" alt="" class="cur-ic">`;
 const CR=ic('credits.png'),AM=ic('upcreds.png'),HC=ic('hypercredits.png');
 const Z=[0,0],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],sumP=a=>a.reduce(add,Z),$=s=>document.querySelector(s),
-fmt=n=>Math.round(n).toLocaleString('fr-FR'),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3,res:[0,0,0],inc:{ch:1,op:1}});
+fmt=n=>Math.round(n).toLocaleString((LANG_META[S.lang]||LANG_META.en).locale),esc=s=>s.replace(/[&<>\"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const def=()=>({tab:0,chars:[],ops:Object.fromEntries(Object.keys(OPS).map(k=>[k,{own:+!OPS[k].price,lvl:1,tgt:30,done:0,sk:[0,0,0,0],fav:0}])),lg:{cur:0,tgt:54900},act:SIM.act,stats:{min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl},bpl:0,bps:0,bpr:0,cols:3,res:[0,0,0],inc:{ch:1,op:1},lang:detectLang()});
 let S;try{S={...def(),...JSON.parse(localStorage.getItem(KEY))}}catch{S=def()}
 const fixS=()=>S.chars.forEach(c=>{if(c.fav===undefined)c.fav=1});fixS();   // chars créés avant les favoris : considérés comme favoris
 const RES_MAX=999999999;   // plafond de saisie des ressources actuelles (évite débordements de mise en page et pertes de précision)
 const clampRes=v=>Math.min(RES_MAX,Math.max(0,Math.floor(+v||0)));
 const fixRes=()=>{S.res=Array.isArray(S.res)&&S.res.length===3?S.res.map(clampRes):[0,0,0]};fixRes();
-const fixInc=()=>{const i=S.inc||{};S.inc={ch:i.ch===0?0:1,op:i.op===0?0:1}};fixInc();   // dépenses incluses dans le pronostic (1 = oui) ; anciennes sauvegardes : tout inclus   // anciennes sauvegardes sans ressources : [0,0,0]
+const fixInc=()=>{const i=S.inc||{};S.inc={ch:i.ch===0?0:1,op:i.op===0?0:1}};fixInc();   // dépenses incluses dans le pronostic (1 = oui) ; anciennes sauvegardes : tout inclus
+const fixLang=()=>{if(!LANG_META.hasOwnProperty(S.lang))S.lang=detectLang()};fixLang();   // langue invalide ou absente : langue du navigateur   // anciennes sauvegardes sans ressources : [0,0,0]
 const newId=()=>{let i=Date.now();while(S.chars.some(c=>c.id===i))i++;return i};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch{}};
 const go=()=>{save();render()};
@@ -21,10 +22,10 @@ let UI={m:null,t:{h:false,o:false,l:false,s:false,a:false,c:false,f:false},f:{h:
 /* row : accepte [Crédits, Crédits d'amél., Hypercrédits] ; les HC ne s'affichent que s'ils sont > 0 */
 const row=(l,v,b)=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v[1])p.push(fmt(v[1])+' '+AM);if(v[2])p.push(fmt(v[2])+' '+HC);return `<div class="flex justify-between gap-2 ${b?'text-mand font-bold':''}"><span>${l}</span><span class="text-right">${p.join(' · ')}</span></div>`};
 const kv=(l,v)=>`<div class="flex justify-between"><span>${l}</span><b class="text-mand">${v}</b></div>`;
-const netLine=(l,x,u)=>x>=0?kv(l,fmt(x)+' '+u):`<div class="flex justify-between"><span>${l}</span><b class="text-emerald-400">Excédent de +${fmt(-x)} ${u}</b></div>`;
-const hm=m=>{const t=Math.round(m);return `${Math.floor(t/60)} h ${String(t%60).padStart(2,'0')} min`};
+const netLine=(l,x,u)=>x>=0?kv(l,fmt(x)+' '+u):`<div class="flex justify-between"><span>${l}</span><b class="text-emerald-400">${t('surplus_of')} +${fmt(-x)} ${u}</b></div>`;
+const hm=m=>{const x=Math.round(m);return `${Math.floor(x/60)} ${t('unit_h')} ${String(x%60).padStart(2,'0')} ${t('unit_min')}`};
 const slider=(max,v,cb)=>`<div class="flex items-center gap-2"><input type="range" min="1" max="${max}" value="${v}" oninput="this.nextElementSibling.textContent=this.value" onchange="setTimeout(()=>{${cb}},0)"><b class="text-mand w-8 text-right">${v}</b></div>`;
-const boxes=(L,lvl,ck,cb,p)=>`<div class="grid gap-1" style="grid-template-columns:repeat(${L.length},1fr)">${L.map((m,i)=>{const d=lvl<m[0];return `<label class="text-center text-xs ${d?'opacity-40':''}"><input type="checkbox" ${ck[i]&&!d?'checked':''} ${d?'disabled':''} onchange="${cb(i)}"><br>${p}${i+1}<br>Niv. ${m[0]}</label>`}).join('')}</div>`;
+const boxes=(L,lvl,ck,cb,p)=>`<div class="grid gap-1" style="grid-template-columns:repeat(${L.length},1fr)">${L.map((m,i)=>{const d=lvl<m[0];return `<label class="text-center text-xs ${d?'opacity-40':''}"><input type="checkbox" ${ck[i]&&!d?'checked':''} ${d?'disabled':''} onchange="${cb(i)}"><br>${p}${i+1}<br>${t('lvl_s')} ${m[0]}</label>`}).join('')}</div>`;
 const dBoxes=()=>boxes(MODS,D.lvl,D.mods,i=>`D.mods[${i}]=+this.checked`,'M');
 
 /* ---- Calculs de base ---- */
@@ -171,72 +172,73 @@ if(!(S.ops[k].lvl<tgtOf(S.ops[k])))continue;
 const order=[k,...ownKeys.filter(x=>x!==k)];
 if(order.join()===ownKeys.join())continue;
 const alt=runOrder(order);
-if(alt.Mtot!==null&&(bestM===null||alt.Mtot<bestM)){bestM=alt.Mtot;tip={name:OPS[k].n,dGain:base.D!==null?base.D-alt.D:null,mGain:base.Mtot!==null?base.Mtot-alt.Mtot:null,D:alt.D}}}
+if(alt.Mtot!==null&&(bestM===null||alt.Mtot<bestM)){bestM=alt.Mtot;tip={name:opName(k),dGain:base.D!==null?base.D-alt.D:null,mGain:base.Mtot!==null?base.Mtot-alt.Mtot:null,D:alt.D}}}
 return{need,inc:S.inc,dc:h.T,dop,res,left,...base,b,dT,tip,p:proj(dT||0)}}
 
 /* ---- Fenêtre modale (bulles du Hangar) ---- */
-const openM=(t,id)=>{if(t==='p')P={key:id,lvl:1,mods:[0,0,0,0,0]};UI.m=t==='c'?{t:'c',id}:t==='p'?{t:'p'}:{t:'a'};render()};
+const openM=(t,id)=>{if(t==='p')P={key:id,lvl:1,mods:[0,0,0,0,0]};UI.m=t==='c'?{t:'c',id}:t==='p'?{t:'p'}:t==='i'?{t:'i'}:{t:'a'};render()};
 const closeM=()=>{UI.m=null;P=null;render()};
 /* ---- Tableaux de nivellement (dépliables) ---- */
 const toggleT=k=>{UI.t[k]=!UI.t[k];render()};
 const lvlTbl=(head,rows)=>`<div class="overflow-x-auto"><table class="lvl-tbl"><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
 const pair=v=>`${fmt(v[0])} ${CR}`+(v[1]?` · ${fmt(v[1])} ${AM}`:'');
-const foldable=(k,title,html)=>`<button class="btn bev w-full" onclick="toggleT('${k}')">${UI.t[k]?'▲ Masquer le tableau':'▼ '+title}</button>${UI.t[k]?`<section class="card bev p-3 space-y-3">${html}</section>`:''}`;
+const foldable=(k,title,html)=>`<button class="btn bev w-full" onclick="toggleT('${k}')">${UI.t[k]?'▲ '+t('hide_table'):'▼ '+title}</button>${UI.t[k]?`<section class="card bev p-3 space-y-3">${html}</section>`:''}`;
 const totRow=cells=>cells.map(c=>`<b class="text-mand">${c}</b>`);
 function tblChars(){
 const lv=LEVEL_COSTS.map((c,i)=>[`${i+1} → ${i+2}`,`${fmt(c[0])} ${CR}`,`${fmt(c[1])} ${AM}`,pair(sumP(LEVEL_COSTS.slice(i)))]);
-const tot=sumP(LEVEL_COSTS);lv.push(totRow(['Total',`${fmt(tot[0])} ${CR}`,`${fmt(tot[1])} ${AM}`,'—']));
-const md=MODS.map((m,i)=>[`Module ${i+1}`,`Niv. ${m[0]}`,`${fmt(m[1])} ${CR}`]);
-md.push(totRow(['Total','—',`${fmt(MODS.reduce((t,m)=>t+m[1],0))} ${CR}`]));
-return `<h2 class="text-mand text-sm">Nivellement des chars</h2>${lvlTbl(['Niveau',CR,AM,"Reste jusqu'au niv. 20"],lv)}
-<h2 class="text-mand text-sm">Modules</h2>${lvlTbl(['Module','Niveau requis','Coût'],md)}`}
+const tot=sumP(LEVEL_COSTS);lv.push(totRow([t('total'),`${fmt(tot[0])} ${CR}`,`${fmt(tot[1])} ${AM}`,'—']));
+const md=MODS.map((m,i)=>[`${t('module')} ${i+1}`,`${t('lvl_s')} ${m[0]}`,`${fmt(m[1])} ${CR}`]);
+md.push(totRow([t('total'),'—',`${fmt(MODS.reduce((t,m)=>t+m[1],0))} ${CR}`]));
+return `<h2 class="text-mand text-sm">${t('lvl_chars')}</h2>${lvlTbl([t('level'),CR,AM,t('rest_to20')],lv)}
+<h2 class="text-mand text-sm">${t('modules')}</h2>${lvlTbl([t('module'),t('req_level'),t('cost')],md)}`}
 function tblOps(){
 const lv=OP_MATCHES.map((m,i)=>[`${i+1} → ${i+2}`,fmt(m),fmt(OP_MATCHES.slice(i).reduce((a,b)=>a+b,0)),pair(OP_REWARDS[i+1]||[0,0])]);
-const sumM=OP_MATCHES.reduce((a,b)=>a+b,0);lv.push(totRow(['Total',fmt(sumM),'—',pair(sumP(OP_REWARDS.slice(1,30)))]));
-const sk=OP_SKILLS.map((a,i)=>[`A${i+1}`,`Niv. ${a[0]}`,`${fmt(a[1])} ${CR}`]);
-sk.push(totRow(['Total','—',`${fmt(OP_SKILLS.reduce((t,a)=>t+a[1],0))} ${CR}`]));
-return `<h2 class="text-mand text-sm">Combats par niveau</h2>${lvlTbl(['Niveau','Matchs','Restants','Récompenses'],lv)}
-<h2 class="text-mand text-sm">Aptitudes</h2>${lvlTbl(['Aptitude','Niveau requis','Coût'],sk)}`}
-function vHangar(){return vHangar0()+foldable('h','Tableau de nivellement',tblChars())}
-function vOps(){return vOps0()+foldable('o','Tableau de nivellement',tblOps())}
+const sumM=OP_MATCHES.reduce((a,b)=>a+b,0);lv.push(totRow([t('total'),fmt(sumM),'—',pair(sumP(OP_REWARDS.slice(1,30)))]));
+const sk=OP_SKILLS.map((a,i)=>[`A${i+1}`,`${t('lvl_s')} ${a[0]}`,`${fmt(a[1])} ${CR}`]);
+sk.push(totRow([t('total'),'—',`${fmt(OP_SKILLS.reduce((t,a)=>t+a[1],0))} ${CR}`]));
+return `<h2 class="text-mand text-sm">${t('combats_lvl')}</h2>${lvlTbl([t('level'),t('matches'),t('remaining'),t('rewards')],lv)}
+<h2 class="text-mand text-sm">${t('skills')}</h2>${lvlTbl([t('skill'),t('req_level'),t('cost')],sk)}`}
+function vHangar(){return vHangar0()+foldable('h',t('lvl_table'),tblChars())}
+function vOps(){return vOps0()+foldable('o',t('lvl_table'),tblOps())}
 
 function renderModal(){const m=$('#modal');
 if(!UI.m){m.className='';m.innerHTML='';m.onclick=null;return}
 let body;
 if(UI.m.t==='a')body=addForm();
+else if(UI.m.t==='i')body=aboutHtml();
 else if(UI.m.t==='p'){if(!P){UI.m=null;m.className='';m.innerHTML='';return}body=pCard()}
 else{const c=byId(UI.m.id);if(!c){UI.m=null;m.className='';m.innerHTML='';return}body=charCard(c)}
 m.className='open';
 let down=false;m.onpointerdown=e=>{down=e.target===m};m.onclick=e=>{const ok=down&&e.target===m;down=false;if(ok)closeM()};
-m.innerHTML=`<div>${UI.m.t!=='c'?body:body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">Fermer</button></section>')}</div>`;}
+m.innerHTML=`<div>${UI.m.t!=='c'?body:body.replace('</section>','<button class="btn bev w-full mt-2" onclick="closeM()">'+t('close')+'</button></section>')}</div>`;}
 
 /* ---- Onglet 1 : Mon Hangar ---- */
 /* ---- Chars de la boutique (masquée) : nom/image dérivés de CHARS via c.key ---- */
 const catOf=c=>c.key&&CHARS.find(x=>x[0]===c.key);
-const cName=c=>{const x=catOf(c);return x?(x[1]||x[0]):c.name};
+const cName=c=>{const x=catOf(c);return x?(S.lang==='fr'?(x[1]||x[0]):x[0]):c.name};
 const cInd=c=>{const x=catOf(c);return x?x[2]:c.ind};
 const cCls=c=>{const x=catOf(c);return x?x[3]:c.cls};
 const cImg=c=>{const x=catOf(c);return c.img||(x?`assets/${x[0]}.webp`:null)};
 const GRID=()=>`<div class="grid gap-3" style="grid-template-columns:repeat(${S.cols||3},minmax(0,1fr))">`;
 const STAR=f=>`<svg viewBox="0 0 24 24" class="w-5 h-5" fill="${f?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26"/></svg>`;
 const TRASH='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
-const bub=(c,a='',lvl=1,tag='button')=>{const im=cImg(c);return `<${tag} class="bubble${im?' has-img':''}${cCls(c)?' k-'+cCls(c):''}" ${a}>${im?`<i class="art" style="background-image:url(${im})"></i>`:''}<b>${esc(cName(c))}</b>${lvl?`<small>Niv. ${c.lvl}</small>`:''}${lvl&&c.fav&&tag==='button'?'<span class="fav-b">★</span>':''}</${tag}>`};
+const bub=(c,a='',lvl=1,tag='button')=>{const im=cImg(c);return `<${tag} class="bubble${im?' has-img':''}${cCls(c)?' k-'+cCls(c):''}" ${a}>${im?`<i class="art" style="background-image:url(${im})"></i>`:''}<b>${esc(cName(c))}</b>${lvl?`<small>${t('lvl_s')} ${c.lvl}</small>`:''}${lvl&&c.fav&&tag==='button'?'<span class="fav-b">★</span>':''}</${tag}>`};
 /* ---- Filtres Industriel / Classe (affichage uniquement, non sauvegardés ; aucun effet sur les calculs) ---- */
 const SLID='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>';
 const fOn=k=>UI.f[k].ind.length+UI.f[k].cls.length>0;
 const fPass=(k,c)=>{const f=UI.f[k];return(!f.ind.length||f.ind.includes(cInd(c)))&&(!f.cls.length||f.cls.includes(cCls(c)))};
-const fBtn=k=>`<button class="${fOn(k)?'text-mand':'text-mag'} px-2" onclick="fOpen('${k}')" aria-label="Filtres" aria-expanded="${UI.f[k].o}">${SLID}</button>`;
+const fBtn=k=>`<button class="${fOn(k)?'text-mand':'text-mag'} px-2" onclick="fOpen('${k}')" aria-label="${t('filters')}" aria-expanded="${UI.f[k].o}">${SLID}</button>`;
 const filtHtml=k=>{const f=UI.f[k],chip=(t,v,l,col)=>`<button class="btn bev text-xs" ${f[t].includes(v)?'style="background:#ff8a1f;color:#070e3a" ':''}onclick="fTog('${k}','${t}','${v}')">${col?`<span style="color:${col}">●</span> `:''}${l}</button>`;
-return `<div class="space-y-2 border-t border-mag/40 pt-2"><div class="text-xs">Industriel</div><div class="flex flex-wrap gap-2">${Object.entries(INDUSTRIES).map(([v,l])=>chip('ind',v,l)).join('')}</div><div class="text-xs">Classe</div><div class="flex flex-wrap gap-2">${Object.entries(CLASSES).map(([v,[l,c]])=>chip('cls',v,l,c)).join('')}</div></div>`};
+return `<div class="space-y-2 border-t border-mag/40 pt-2"><div class="text-xs">${t('industry')}</div><div class="flex flex-wrap gap-2">${Object.entries(INDUSTRIES).map(([v,l])=>chip('ind',v,t('ind_'+v,l))).join('')}</div><div class="text-xs">${t('class')}</div><div class="flex flex-wrap gap-2">${Object.entries(CLASSES).map(([v,[l,c]])=>chip('cls',v,t('cls_'+v,l),c)).join('')}</div></div>`};
 function fOpen(k){UI.f[k].o=!UI.f[k].o;render()}
 function fTog(k,t,v){const a=UI.f[k][t],i=a.indexOf(v);i<0?a.push(v):a.splice(i,1);render()}
-function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row('Niveaux',h.L)}${row('Modules',h.M)}${row('Total complet',h.T,1)}</section>
-<section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Mon Hangar</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
-+`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} Chars</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="Créer un char"><span class="pl">+</span><b>Créer un char</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
+function vHangar0(){const h=hangar(),shop=CHARS.filter(x=>!S.chars.some(c=>c.key===x[0]));return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">${t('total')}</h2>${row(t('levels'),h.L)}${row(t('modules'),h.M)}${row(t('total_full'),h.T,1)}</section>
+<section id="hangarZone" class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">${t('my_hangar')}</h2>${fBtn('h')}</div>${UI.f.h.o?filtHtml('h'):''}${GRID()}${S.chars.filter(c=>fPass('h',c)).map(c=>bub(c,`data-drag="${c.id}" data-from="h" onclick="hClick(${c.id})" oncontextmenu="return false"`)).join('')}</div></section>`
++`<div id="shopZone" class="space-y-3"><button class="btn bev w-full" onclick="toggleT('c')">${UI.t.c?'▲':'▼'} ${t('chars')}</button>${UI.t.c?`<section class="card bev p-3 space-y-2"><div class="flex justify-end">${fBtn('c')}</div>${UI.f.c.o?filtHtml('c'):''}${GRID()}<button class="bubble add" onclick="openM('a')" aria-label="${t('create_char')}"><span class="pl">+</span><b>${t('create_char')}</b></button>${shop.filter(x=>fPass('c',{key:x[0]})).map(x=>bub({key:x[0]},`data-drag="${esc(x[0])}" data-from="s" onclick="shopClick(this.dataset.drag)" oncontextmenu="return false"`,0)).join('')}</div></section>`:''}</div>`}
 function addCat(key,to,open,cfg){const x=CHARS.find(x=>x[0]===key);if(!x||S.chars.some(c=>c.key===key))return;const n={id:newId(),key,name:x[1]||x[0],lvl:cfg?cfg.lvl:1,mods:cfg?[...cfg.mods]:[0,0,0,0,0],img:null,fav:0},ti=to==null?-1:S.chars.findIndex(c=>c.id===to);S.chars.splice(ti<0?S.chars.length:ti,0,n);P=null;UI.m=open?{t:'c',id:n.id}:null;go()}
 /* Carte de configuration d'un char de la boutique (clic) : le char n'est ajouté au hangar qu'au clic sur « Ajouter » */
 function pCard(){const c={key:P.key,lvl:P.lvl,mods:P.mods,fav:0},nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0),lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="Fermer">✕</button><h2 class="text-mand text-sm pr-8">Ajouter au hangar</h2><div class="flex justify-center"><div style="width:7rem">${bub(c,'',1,'div')}</div></div><b class="ttl text-sm block">${esc(cName(c))}</b>${slider(20,c.lvl,'pLvl(+this.value)')}${boxes(MODS,c.lvl,c.mods,i=>`pMod(${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row("Reste jusqu'au niv. 20",lvlRest)}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div><button class="btn bev w-full" onclick="pAdd()">Ajouter</button></section>`}
+return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="${t('close')}">✕</button><h2 class="text-mand text-sm pr-8">${t('add_to_hangar')}</h2><div class="flex justify-center"><div style="width:7rem">${bub(c,'',1,'div')}</div></div><b class="ttl text-sm block">${esc(cName(c))}</b>${slider(20,c.lvl,'pLvl(+this.value)')}${boxes(MODS,c.lvl,c.mods,i=>`pMod(${i},this.checked)`,'M')}<div class="text-sm">${row(t('next_level'),nx)}${row(t('rest_to20'),lvlRest)}${row(t('modules_left'),[md,0])}${row(t('total_full'),add(lvlRest,[md,0]),1)}</div><button class="btn bev w-full" onclick="pAdd()">${t('add')}</button></section>`}
 function pLvl(v){if(!P)return;P.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])P.mods[i]=0});render()}
 function pMod(i,v){if(!P)return;P.mods[i]=+v;render()}
 function pAdd(){if(P)addCat(P.key,null,false,P)}
@@ -266,8 +268,8 @@ if(d.from==='s'){if(tile)addCat(d.key,+tile.dataset.drag,true);else if(hz)addCat
 else if(tile&&tile!==d.el)moveChar(+d.key,+tile.dataset.drag);else if(!tile&&hz)moveChar(+d.key,null);else if(!tile&&t.closest('#shopZone'))delChar(+d.key)}}
 const dTagBtn=(t,v,l,col)=>`<button class="btn bev text-xs" data-t="${t}" data-v="${v}" ${D[t]===v?'style="background:#ff8a1f;color:#070e3a" ':''}onclick="dTag('${t}','${v}')">${col?`<span style="color:${col}">●</span> `:''}${l}</button>`;
 function dTag(t,v){D[t]=D[t]===v?'':v;document.querySelectorAll(`#dtags [data-t="${t}"]`).forEach(b=>{const on=b.dataset.v===D[t];b.style.background=on?'#ff8a1f':'';b.style.color=on?'#070e3a':''})}
-function addForm(){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="Fermer">✕</button><h2 class="text-mand text-sm pr-8">Ajouter un char</h2><input id="cn" type="text" placeholder="Nom du char" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><div id="dtags" class="space-y-2"><div class="text-xs">Industriel</div><div class="tags">${Object.entries(INDUSTRIES).map(([v,l])=>dTagBtn('ind',v,l)).join('')}</div><div class="text-xs">Classe</div><div class="tags">${Object.entries(CLASSES).map(([v,[l,c]])=>dTagBtn('cls',v,l,c)).join('')}</div></div><button class="btn bev w-full" onclick="addChar()">Ajouter</button>
-<button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">Importer une image</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
+function addForm(){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="${t('close')}">✕</button><h2 class="text-mand text-sm pr-8">${t('add_char_title')}</h2><input id="cn" type="text" placeholder="${t('char_name')}" maxlength="30">${slider(20,D.lvl,'dLvl(+this.value)')}<div id="dm">${dBoxes()}</div><div id="dtags" class="space-y-2"><div class="text-xs">${t('industry')}</div><div class="tags">${Object.entries(INDUSTRIES).map(([v,l])=>dTagBtn('ind',v,t('ind_'+v,l))).join('')}</div><div class="text-xs">${t('class')}</div><div class="tags">${Object.entries(CLASSES).map(([v,[l,c]])=>dTagBtn('cls',v,t('cls_'+v,l),c)).join('')}</div></div><button class="btn bev w-full" onclick="addChar()">${t('add')}</button>
+<button class="btn bev w-full" onclick="pickImg(d=>{D.img=d;const e=$('#dimg');if(e)e.innerHTML=previewImg(d)})">${t('import_img')}</button><div id="dimg">${D.img?previewImg(D.img):''}</div></section>`}
 function previewImg(d){return `<img class="crop-16x10" src="${d}" alt="">`}
 function toCrop(f,cb){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const W=480,H=300,w=im.width,h=im.height;let sx=0,sy=0,sw=w,sh=h;
 if(w/h>1.6){sw=h*1.6;sx=(w-sw)/2}else{sh=w/1.6;sy=(h-sh)/2}
@@ -276,27 +278,27 @@ function pickImg(cb){const i=document.createElement('input');i.type='file';i.acc
 i.onchange=()=>{const f=i.files[0];i.remove();if(f)toCrop(f,cb)};i.click()}
 function charCard(c){const nx=c.lvl<20?LEVEL_COSTS[c.lvl-1]:Z,md=MODS.reduce((t,m,i)=>c.mods[i]?t:t+m[1],0);
 const lvlRest=sumP(LEVEL_COSTS.slice(c.lvl-1));
-return `<section class="card bev p-3 space-y-2 relative"><button class="absolute ${c.fav?'text-mand':'text-mag'}" style="top:10px;right:10px" onclick="toggleFav(${c.id})" aria-label="Favori" aria-pressed="${!!c.fav}">${STAR(c.fav)}</button><div class="flex justify-center"><div class="relative" style="width:7rem">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="Retirer l'image">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">Importer</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="Supprimer ce char">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row('Niveau suivant',nx)}${row('Reste jusqu\'au niv. 20',sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row('Modules restants',[md,0])}${row('Total complet',add(lvlRest,[md,0]),1)}</div></section>`}
+return `<section class="card bev p-3 space-y-2 relative"><button class="absolute ${c.fav?'text-mand':'text-mag'}" style="top:10px;right:10px" onclick="toggleFav(${c.id})" aria-label="${t('fav')}" aria-pressed="${!!c.fav}">${STAR(c.fav)}</button><div class="flex justify-center"><div class="relative" style="width:7rem">${bub(c,'',1,'div')}${c.img?`<button class="absolute text-mag font-bold px-2" style="left:100%;top:-8px" onclick="rmImg(${c.id})" aria-label="${t('remove_img')}">✕</button>`:''}</div></div>${c.img?'':`<div class="flex justify-center"><button class="btn bev text-xs" onclick="pickImg(d=>{byId(${c.id}).img=d;go()})">${t('import')}</button></div>`}<div class="flex justify-between"><b class="ttl text-sm">${esc(cName(c))}</b><button onclick="delChar(${c.id})" class="text-mag px-2" aria-label="${t('delete_char')}">${TRASH}</button></div>${slider(20,c.lvl,`cLvl(${c.id},+this.value)`)}${boxes(MODS,c.lvl,c.mods,i=>`cMod(${c.id},${i},this.checked)`,'M')}<div class="text-sm">${row(t('next_level'),nx)}${row(t('rest_to20'),sumP(LEVEL_COSTS.slice(c.lvl-1)))}${row(t('modules_left'),[md,0])}${row(t('total_full'),add(lvlRest,[md,0]),1)}</div></section>`}
 const byId=id=>S.chars.find(c=>c.id===id);
 function dLvl(v){D.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])D.mods[i]=0});$('#dm').innerHTML=dBoxes()}
-function addChar(){S.chars.push({id:newId(),name:($('#cn').value.trim()||'Char '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img,ind:D.ind||null,cls:D.cls||null,fav:0});D={lvl:1,mods:[0,0,0,0,0],img:null,ind:'',cls:''};UI.m=null;go()}
+function addChar(){S.chars.push({id:newId(),name:($('#cn').value.trim()||t('char')+' '+(S.chars.length+1)).slice(0,30),lvl:D.lvl,mods:[...D.mods],img:D.img,ind:D.ind||null,cls:D.cls||null,fav:0});D={lvl:1,mods:[0,0,0,0,0],img:null,ind:'',cls:''};UI.m=null;go()}
 function cLvl(id,v){const c=byId(id);c.lvl=v;MODS.forEach((m,i)=>{if(v<m[0])c.mods[i]=0});go()}
 function cMod(id,i,v){byId(id).mods[i]=+v;go()}
-function rmImg(id){if(confirm(byId(id)?.key?"Rétablir l'image d'origine ?":'Supprimer cette image ?')){byId(id).img=null;go()}}
-function delChar(id){if(confirm(byId(id)?.key?'Retirer ce char du hangar ? Son niveau et ses modules seront perdus.':'Supprimer ce char ? Il sera définitivement perdu.')){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
+function rmImg(id){if(confirm(t(byId(id)?.key?'confirm_rm_img_key':'confirm_rm_img'))){byId(id).img=null;go()}}
+function delChar(id){if(confirm(t(byId(id)?.key?'confirm_rm_char_key':'confirm_del_char'))){S.chars=S.chars.filter(c=>c.id!==id);UI.m=null;go()}}
 
 /* ---- Onglet 2 : Opérateurs ---- */
 /* Total des opérateurs pris en compte (opList) : progression des acquis + prix de déblocage (HC) des non acquis */
 function opSum(){const t=owned().reduce((t,k)=>{const r=opRem(S.ops[k]);return{g:add(t.g,r.g),a:add(t.a,r.a),m:t.m+r.m}},{g:Z,a:Z,m:0});return{...t,h:opHC()}}
-function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Total</h2>${row("Récompenses d'Opérateur restantes",o.g)}${row('Dépenses Aptitudes restantes',o.a)}${o.h?row('Déblocage des Opérateurs',[0,0,o.h]):''}${netLine('Total des Récompenses Restantes',o.a[0]-o.g[0],CR)}${kv('Matchs restants',fmt(o.m))}${kv('Temps de jeu estimé',hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,t=tgtOf(p),inL=opList().includes(k);
-const body=p.own?`${dualSlider(k,p.lvl,t)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv('Matchs restants (→ niv. '+t+')',fmt(m))}${kvDone(k,p)}${row("Récompenses d'Opérateur restants",r.g)}${row('Dépenses Aptitudes restantes',r.a)}</div>${inL?'':'<p class="text-xs opacity-60">Hors favoris : exclu des calculs.</p>'}`:`<p class="text-sm opacity-60">Non acquis : seul le prix de déblocage (${o.price} ${HC}) est compté${inL?'.':' — hors favoris, exclu des calculs.'}</p>`;
-return `<section class="card bev op-card p-3 space-y-2${p.own?'':' op-off'}"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${o.n}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> Acquis (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">Gratuite</span>'}</div><button class="${p.fav?'text-mand':'text-mag'}" onclick="oFav('${k}')" aria-label="Favori" aria-pressed="${!!p.fav}">${STAR(p.fav)}</button></div>${body}</section>`}).join('')}
+function vOps0(){const o=opSum();return `<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">${t('total')}</h2>${row(t('op_rewards_left'),o.g)}${row(t('skills_cost_left'),o.a)}${o.h?row(t('unlock_ops'),[0,0,o.h]):''}${netLine(t('net_rewards_left'),o.a[0]-o.g[0],CR)}${kv(t('matches_left'),fmt(o.m))}${kv(t('est_time'),hm(o.m*matchMin()))}</section>`+Object.entries(OPS).map(([k,o])=>{const p=S.ops[k],r=opRem(p),m=r.m,tg=tgtOf(p),inL=opList().includes(k);
+const body=p.own?`${dualSlider(k,p.lvl,tg)}${boxes(OP_SKILLS,p.lvl,p.sk,i=>`oSk('${k}',${i},this.checked)`,'A')}<div class="text-sm">${kv(tp('matches_to',tg),fmt(m))}${kvDone(k,p)}${row(t('op_rewards_left'),r.g)}${row(t('skills_cost_left'),r.a)}</div>${inL?'':'<p class="text-xs opacity-60">'+t('excl_fav')+'</p>'}`:`<p class="text-sm opacity-60">${tp(inL?'not_owned':'not_owned_x',o.price,HC)}</p>`;
+return `<section class="card bev op-card p-3 space-y-2${p.own?'':' op-off'}"><div class="op-bg" aria-hidden="true"><img src="assets/${k}.png" alt="" onerror="this.parentNode.remove()"></div><div class="flex items-center gap-2"><b class="ttl">${opName(k)}</b><div class="ml-auto text-right">${o.price?`<label class="text-xs"><input type="checkbox" ${p.own?'checked':''} onchange="oOwn('${k}',this.checked)"> ${t('owned')} (${o.price} ${HC})</label>`:'<span class="text-xs text-mand font-bold">'+t('free')+'</span>'}</div><button class="${p.fav?'text-mand':'text-mag'}" onclick="oFav('${k}')" aria-label="${t('fav')}" aria-pressed="${!!p.fav}">${STAR(p.fav)}</button></div>${body}</section>`}).join('')}
 function oFav(k){S.ops[k].fav=S.ops[k].fav?0:1;go()}
 function oOwn(k,v){S.ops[k].own=+v;go()}
 function oLvl(k,v){const p=S.ops[k];if(v!==p.lvl)p.done=0;p.lvl=v;if(tgtOf(p)<v)p.tgt=v;OP_SKILLS.forEach((a,i)=>{if(v<a[0])p.sk[i]=0});go()}
 function oTgt(k,v){const p=S.ops[k];p.tgt=Math.max(v,p.lvl);go()}
-function opDone(k){const p=S.ops[k],max=OP_MATCHES[p.lvl-1];if(max==null)return;const v=prompt('Combats effectués sur le niveau '+p.lvl+' (sur '+max+') :',p.done||0);if(v===null)return;p.done=Math.min(max,Math.max(0,parseInt(v)||0));go()}
-const kvDone=(k,p)=>p.lvl>=30?kv('Combats effectués','Niveau max'):`<div class="flex justify-between items-center"><span>Combats effectués (niv. ${p.lvl})</span><span class="flex items-center gap-1"><b class="text-mand">${Math.min(p.done||0,OP_MATCHES[p.lvl-1])} / ${OP_MATCHES[p.lvl-1]}</b><button class="text-xs opacity-60 px-1" onclick="opDone('${k}')" aria-label="Modifier les combats effectués">✎</button></span></div>`;
+function opDone(k){const p=S.ops[k],max=OP_MATCHES[p.lvl-1];if(max==null)return;const v=prompt(tp('done_prompt',p.lvl,max),p.done||0);if(v===null)return;p.done=Math.min(max,Math.max(0,parseInt(v)||0));go()}
+const kvDone=(k,p)=>p.lvl>=30?kv(t('done'),t('max_level')):`<div class="flex justify-between items-center"><span>${tp('done_lvl',p.lvl)}</span><span class="flex items-center gap-1"><b class="text-mand">${Math.min(p.done||0,OP_MATCHES[p.lvl-1])} / ${OP_MATCHES[p.lvl-1]}</b><button class="text-xs opacity-60 px-1" onclick="opDone('${k}')" aria-label="${t('edit_done')}">✎</button></span></div>`;
 function dualSlider(k,lvl,tgt){return `<div class="flex items-center gap-2"><div class="dual" data-k="${k}" style="--a:${(lvl-1)/29*100}%;--b:${(tgt-1)/29*100}%"><div class="dual-track"></div><div class="dual-fill"></div><input class="da" type="range" min="1" max="30" value="${lvl}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"><input class="db" type="range" min="1" max="30" value="${tgt}" oninput="dualIn(this)" onchange="const d=this.closest('.dual');setTimeout(()=>dualCommit(d),0)"></div><b class="text-mand w-16 text-right text-sm dv">${lvl} → ${tgt}</b></div>`}
 /* Curseurs superposés (niveau / objectif) : si les deux sont au même endroit au début du geste, le sens du déplacement décide
    lequel bouge (gauche → curseur du niveau, droite → curseur de l'objectif) ; l'autre reste sur place. */
@@ -314,12 +316,12 @@ if(x!==p.lvl)p.done=0;p.lvl=x;p.tgt=y;OP_SKILLS.forEach((k,i)=>{if(x<k[0])p.sk[i
 function oSk(k,i,v){S.ops[k].sk[i]=+v;go()}
 
 /* ---- Trophées : saisie unique, synchronisée sur les deux onglets ---- */
-const trophyCur=()=>`<label class="text-xs">Trophées actuels<input data-lg="cur" type="number" min="0" value="${S.lg.cur}" oninput="lgIn('cur',this.value)"></label>`;
-const trophyTgt=()=>`<label class="text-xs">Trophées visés<input data-lg="tgt" type="number" min="0" value="${S.lg.tgt}" oninput="lgIn('tgt',this.value)"></label>`;
+const trophyCur=()=>`<label class="text-xs">${t('cur_trophies')}<input data-lg="cur" type="number" min="0" value="${S.lg.cur}" oninput="lgIn('cur',this.value)"></label>`;
+const trophyTgt=()=>`<label class="text-xs">${t('tgt_trophies')}<input data-lg="tgt" type="number" min="0" value="${S.lg.tgt}" oninput="lgIn('tgt',this.value)"></label>`;
 function lgIn(k,v){S.lg[k]=Math.max(0,+v||0);save();document.querySelectorAll(`[data-lg="${k}"]`).forEach(e=>{if(e!==document.activeElement)e.value=S.lg[k]});upd3()}
 
 /* ---- Ressources actuelles : capital déjà en banque (t = 0), saisie sans reconstruction de la page ---- */
-const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ressources actuelles</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,'Crédits'],[1,AM,"Crédits d'amélioration"],[2,HC,'Hypercrédits']].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" max="${RES_MAX}" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
+const resCard=()=>`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('current_res')}</h2><div class="grid grid-cols-3 gap-2">${[[0,CR,t('cur_cr')],[1,AM,t('cur_up')],[2,HC,t('cur_hc')]].map(([i,icn,n])=>`<label class="text-xs flex flex-col gap-1" aria-label="${n}"><span class="text-base">${icn}</span><input data-res="${i}" type="number" min="0" max="${RES_MAX}" inputmode="numeric" value="${S.res[i]||''}" placeholder="0" oninput="resIn(${i},this.value)"></label>`).join('')}</div></section>`;
 function resIn(i,v){S.res[i]=clampRes(v);document.querySelectorAll(`[data-res="${i}"]`).forEach(e=>{if(+e.value>RES_MAX)e.value=RES_MAX});save();upd3()}
 
 /* ---- Onglet 3 : Récompenses ---- */
@@ -327,26 +329,26 @@ const TRI=ic('trophy.png');
 const CYC='<svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>';
 function statsHtml(){const v=k=>gs(k),mm=matchMin();const inp=(k,l,step,val)=>`<label class="text-xs flex justify-between items-center gap-2"><span>${l}</span><input type="number" step="${step}" min="0" value="${val}" style="width:6rem" onchange="statsIn('${k}',this.value)"></label>`;
 const det=`<div class="space-y-2 border-t border-mag/40 pt-2">
-${inp('min','Durée moyenne d\'un match (min)','0.01',v('min'))}${inp('win','Taux de victoires (%)','0.01',v('win'))}${inp('tw','Trophées / match gagnant','0.1',v('tw'))}${inp('tl','Trophées / match perdu','0.1',v('tl'))}
-<div class="flex justify-between text-sm"><span>Trophées / match (moyenne)</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
-<button class="btn bev text-xs" onclick="statsReset()">Rétablir les valeurs par défaut</button></div>`;
-return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Statistiques de Matchs</h2>
-<div class="flex items-center gap-2 text-xs"><span class="w-28">Matchs / jour</span><input id="actS" type="range" min="1" max="${MAXACT}" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
-<div class="flex items-center gap-2 text-xs"><span class="w-28">Temps de jeu / j</span><input id="timeS" type="range" min="${mm}" max="${MAXACT*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-20 text-right">${hm(S.act*mm)}</b></div>
+${inp('min',t('avg_match_min'),'0.01',v('min'))}${inp('win',t('win_rate'),'0.01',v('win'))}${inp('tw',t('tr_win'),'0.1',v('tw'))}${inp('tl',t('tr_loss'),'0.1',v('tl'))}
+<div class="flex justify-between text-sm"><span>${t('tr_avg')}</span><b class="text-mand">${dec(avgTr(),2)}</b></div>
+<button class="btn bev text-xs" onclick="statsReset()">${t('reset_defaults')}</button></div>`;
+return `<section id="statsBlock" class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('match_stats')}</h2>
+<div class="flex items-center gap-2 text-xs"><span class="w-28">${t('matches_day')}</span><input id="actS" type="range" min="1" max="${MAXACT}" value="${S.act}" oninput="actSync(this.value)"><b id="actV" class="text-mand w-12 text-right">${S.act}</b></div>
+<div class="flex items-center gap-2 text-xs"><span class="w-28">${t('play_time_day')}</span><input id="timeS" type="range" min="${mm}" max="${MAXACT*mm}" step="${mm}" value="${S.act*mm}" oninput="timeSync(this.value)"><b id="timeV" class="text-mand w-20 text-right">${hm(S.act*mm)}</b></div>
 <div id="crp" class="text-sm text-right"></div>
-<button class="btn bev w-full text-xs" onclick="toggleT('s')">${UI.t.s?'▲ Masquer les statistiques':'▼ Détails des statistiques'}</button>${UI.t.s?det:''}</section>`}
+<button class="btn bev w-full text-xs" onclick="toggleT('s')">${UI.t.s?'▲ '+t('hide_stats'):'▼ '+t('stats_details')}</button>${UI.t.s?det:''}</section>`}
 function statsRefresh(){const b=$('#statsBlock');if(S.tab===2&&b){b.outerHTML=statsHtml();upd3();return}render()}
 function statsIn(k,v){const n=+v;if(!(n>=0)||v==='')return;S.stats[k]=k==='win'?Math.min(100,n):n;save();statsRefresh()}
 function statsReset(){S.stats={min:SIM.min,win:SIM.win,tw:SIM.tw,tl:SIM.tl};S.act=SIM.act;save();statsRefresh()}
 
-function vEval(){const ms=nextReset(Date.now())-Date.now(),nr=`${Math.floor(ms/864e5)}j ${Math.floor(ms%864e5/36e5)}h`;
-const vip=(n,l)=>`<div class="flex items-center gap-2"><label class="flex items-center gap-2 text-sm flex-1"><input type="checkbox" ${S.bps===n?'checked':''} onchange="bpStd(${n},this.checked)"> ${l}</label><button class="cycle-btn ${S.bpr===n?'on':''}" onclick="bpRec(${n})" aria-pressed="${S.bpr===n}" aria-label="Récurrence ${l}" title="Récurrence">${CYC}</button></div>`;
+function vEval(){const ms=nextReset(Date.now())-Date.now(),nr=`${Math.floor(ms/864e5)}${t('unit_d')} ${Math.floor(ms%864e5/36e5)}${t('unit_h')}`;
+const vip=(n,l)=>`<div class="flex items-center gap-2"><label class="flex items-center gap-2 text-sm flex-1"><input type="checkbox" ${S.bps===n?'checked':''} onchange="bpStd(${n},this.checked)"> ${l}</label><button class="cycle-btn ${S.bpr===n?'on':''}" onclick="bpRec(${n})" aria-pressed="${S.bpr===n}" aria-label="${t('recurrence')} ${l}" title="${t('recurrence')}">${CYC}</button></div>`;
 return statsHtml()
-+`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Ligue des trophées</h2>${trophyCur()}<div id="rate" class="text-sm"></div>
-<button class="btn bev w-full text-xs" onclick="toggleT('l')">${UI.t.l?'▲ Masquer le calculateur':'▼ Calculateur de trophées visés'}</button>${UI.t.l?`<div class="space-y-2 border-t border-mag/40 pt-2">${trophyTgt()}<div id="lgr" class="text-sm space-y-1"></div></div>`:''}</section>`
-+`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">Battle Pass</h2><span class="text-xs text-mand font-bold">${nr}</span></div>${bpSlider()}${vip(1,'Battle Pass VIP (niv 1)')}${vip(2,'Battle Pass VIP (niv 2)')}<div id="bpr" class="text-sm space-y-1"></div></section>`
++`<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('league')}</h2>${trophyCur()}<div id="rate" class="text-sm"></div>
+<button class="btn bev w-full text-xs" onclick="toggleT('l')">${UI.t.l?'▲ '+t('hide_calc'):'▼ '+t('calc_tgt')}</button>${UI.t.l?`<div class="space-y-2 border-t border-mag/40 pt-2">${trophyTgt()}<div id="lgr" class="text-sm space-y-1"></div></div>`:''}</section>`
++`<section class="card bev p-3 space-y-2"><div class="flex justify-between items-center"><h2 class="text-mand text-sm">${t('battle_pass')}</h2><span class="text-xs text-mand font-bold">${nr}</span></div>${bpSlider()}${vip(1,t('bp_vip1'))}${vip(2,t('bp_vip2'))}<div id="bpr" class="text-sm space-y-1"></div></section>`
 +resCard()
-+`<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">Estimation de Farm</h2><div id="net" class="text-sm space-y-1"></div></section>`}
++`<section class="card bev p-3 space-y-1"><h2 class="text-mand text-sm">${t('farm_est')}</h2><div id="net" class="text-sm space-y-1"></div></section>`}
 function applyAct(n){S.act=Math.max(1,Math.min(MAXACT,Math.round(n)||1));save();const mm=matchMin(),a=$('#actS'),t=$('#timeS'),av=$('#actV'),tv=$('#timeV');if(a)a.value=S.act;if(t)t.value=S.act*mm;if(av)av.textContent=S.act;if(tv)tv.textContent=hm(S.act*mm);upd3()}
 function actSync(v){applyAct(+v)}
 function timeSync(v){applyAct((+v)/matchMin())}
@@ -361,49 +363,57 @@ const parts=v=>{const p=[];if(v[0]||(!v[1]&&!v[2]))p.push(fmt(v[0])+' '+CR);if(v
 const expRow=(l,v,on,k)=>`<div class="flex justify-between gap-2 items-center ${on?'':'opacity-50'}"><label class="flex items-center gap-2"><input type="checkbox" ${on?'checked':''} onchange="incTog('${k}',this.checked)"><span>${l}</span></label><span class="text-right ${on?'':'line-through'}">${parts(v)}</span></div>`;
 function incTog(k,v){S.inc[k]=v?1:0;save();upd3()}
 function upd3(){const e=$('#net');if(!e)return;const c=calc(),pd=perDay();
-const L=$('#lgr');if(L)L.innerHTML=kv('Temps estimé',c.dT===null?'—':c.dT+' j')+kv('Trophées gagnés',fmt(c.p.gain))+rowBoth('Récompenses',c.p.v,1);
+const L=$('#lgr');if(L)L.innerHTML=kv(t('est_duration'),c.dT===null?'—':c.dT+' '+t('unit_d'))+kv(t('trophies_won'),fmt(c.p.gain))+rowBoth(t('rewards'),c.p.v,1);
 const cp=$('#crp');if(cp)cp.innerHTML=`<b class="text-mand">${fmt(crDay())} ${CR} / j</b>`;
 const col=(n,l)=>`<div><b class="text-mand">${fmt(n)} ${TRI} / ${l}</b><div class="text-sm">= ${fmt(S.lg.cur+n)} ${TRI}</div></div>`;
-$('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(pd,'j')}${col(pd*7,'sem')}${col(pd*30,'mois')}</div>`;
-$('#bpr').innerHTML=bpLine('Déjà obtenu',bpGot())+bpLine('Restant à obtenir',bpRest(),1);
+$('#rate').innerHTML=`<div class="flex flex-wrap justify-between gap-x-3">${col(pd,t('unit_d'))}${col(pd*7,t('unit_w'))}${col(pd*30,t('unit_mo'))}</div>`;
+$('#bpr').innerHTML=bpLine(t('already'),bpGot())+bpLine(t('bp_left'),bpRest(),1);
 const sep='<hr class="border-mag/40 my-1">';
-const pl=c.k>1?'s':'',bpL='Battle Pass'+(c.k?` (+${c.k} saison${pl} terminée${pl})`:'');
+const bpL=t('battle_pass')+(c.k?' '+tp('bp_done',c.k):'');
 const ICO=[CR,AM,HC];
 /* Temps de farm par ressource, côte à côte (affiché en fin de carte) */
-const dd=i=>c.need[i]===0?'—':c.dR[i]===null?'> 10 ans':`${c.dR[i]} j`;
-const dRow=`<div class="text-xs">Temps de jeu estimé/ressources</div><div class="flex justify-around gap-2 text-center">${[0,1,2].map(i=>`<div class="flex-1"><b class="text-mand">${dd(i)}</b><div>${ICO[i]}</div></div>`).join('')}</div>`;
+const dd=i=>c.need[i]===0?'—':c.dR[i]===null?t('gt10y'):`${c.dR[i]} ${t('unit_d')}`;
+const dRow=`<div class="text-xs">${t('time_per_res')}</div><div class="flex justify-around gap-2 text-center">${[0,1,2].map(i=>`<div class="flex-1"><b class="text-mand">${dd(i)}</b><div>${ICO[i]}</div></div>`).join('')}</div>`;
 /* Excédent estimé : uniquement les ressources en surplus (> 0), affiché si la simulation aboutit */
 const ex=c.surplus.map((x,i)=>x>0?fmt(x)+' '+ICO[i]:null).filter(Boolean);
-const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 text-emerald-400 font-bold"><span>Excédent estimé</span><span class="text-right">${ex.join(' · ')}</span></div>`:'';
+const exLine=(c.D!==null&&ex.length)?`<div class="flex justify-between gap-2 text-emerald-400 font-bold"><span>${t('est_surplus')}</span><span class="text-right">${ex.join(' · ')}</span></div>`:'';
 const hasRes=!!(c.res[0]||c.res[1]||c.res[2]);
-const det=(hasRes?row('Ressources actuelles',c.res)+row('Reste à farmer',c.left,1)+sep:'')
-+row('Crédits journalier',[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row('Battle Pass VIP niv 1',c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row('Battle Pass VIP niv 2',c.bpVip2):'')+row('Ligue',c.lg)+row("Récompenses d'Opérateur",c.op)+row('Récompenses Total',c.tot,1)+exLine;
-const tipLine=c.tip?`<div class="flex justify-between gap-2 text-xs text-emerald-400"><span>Astuce priorité</span><b class="text-right">Jouer ${esc(c.tip.name)}: ${c.tip.mGain !== null ? (c.tip.dGain > 0 ? `-${c.tip.dGain}j ( -${hm(c.tip.mGain * matchMin())} )` : `-${hm(c.tip.mGain * matchMin())}`) : `${c.tip.D}j`}</b></div>`:'';
-e.innerHTML=expRow('Dépenses Chars',c.dc,c.inc.ch,'ch')+expRow('Dépenses Opérateurs',c.dop,c.inc.op,'op')+row('Dépenses Total',c.need,1)
-+`<button class="btn bev w-full text-xs" onclick="toggleT('f')">${UI.t.f?'▲ Masquer les détails':'▼ Détails Estimations'}</button>`
+const det=(hasRes?row(t('current_res'),c.res)+row(t('left_to_farm'),c.left,1)+sep:'')
++row(t('daily_cr'),[c.farm,0])+row(bpL,c.bp)+((c.bpVip1[0]||c.bpVip1[1]||c.bpVip1[2])?row(t('bp_vip1_row'),c.bpVip1):'')+((c.bpVip2[0]||c.bpVip2[1]||c.bpVip2[2])?row(t('bp_vip2_row'),c.bpVip2):'')+row(t('league_row'),c.lg)+row(t('reward_op'),c.op)+row(t('reward_total'),c.tot,1)+exLine;
+const tipLine=c.tip?`<div class="flex justify-between gap-2 text-xs text-emerald-400"><span>${t('tip_title')}</span><b class="text-right">${tp('tip_play',esc(c.tip.name))} ${c.tip.mGain !== null ? (c.tip.dGain > 0 ? `-${c.tip.dGain} ${t('unit_d')} (-${hm(c.tip.mGain * matchMin())})` : `-${hm(c.tip.mGain * matchMin())}`) : `${c.tip.D} ${t('unit_d')}`}</b></div>`:'';
+e.innerHTML=expRow(t('exp_chars'),c.dc,c.inc.ch,'ch')+expRow(t('exp_ops'),c.dop,c.inc.op,'op')+row(t('exp_total'),c.need,1)
++`<button class="btn bev w-full text-xs" onclick="toggleT('f')">${UI.t.f?'▲ '+t('hide_details'):'▼ '+t('details_est')}</button>`
 +(UI.t.f?`<div class="space-y-1 border-t border-mag/40 pt-2">${det}</div>`:'')
-+sep+kv('Temps de jeu estimé',c.D===null?'plus de 10 ans':`${c.D} j (${hm(c.Mtot*matchMin())})`)+tipLine
++sep+kv(t('est_time'),c.D===null?t('more10y'):`${c.D} ${t('unit_d')} (${hm(c.Mtot*matchMin())})`)+tipLine
 +sep+dRow}
 
 const GEAR='<svg viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="6.5" stroke-width="2.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/><g stroke-width="3.4"><line x1="12" y1="1.8" x2="12" y2="5.4"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(45 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(90 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(135 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(180 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(225 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(270 12 12)"/><line x1="12" y1="1.8" x2="12" y2="5.4" transform="rotate(315 12 12)"/></g></svg>';
-const TABS=[['assets/tanks.png','Hangar'],['assets/iconhank.png','Opérateurs'],['assets/trophy.png','Récompenses'],['gear','Paramètres']];
-function render(){$('#nav').innerHTML=TABS.map((t,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[9px] flex flex-col items-center justify-start gap-1 min-w-0 ${S.tab==i?'text-mand bg-night':'opacity-70'}"><span class="w-7 h-7 flex items-center justify-center">${t[0]==='gear'?GEAR:`<img src="${t[0]}" alt="" class="w-7 h-7 object-contain">`}</span><span class="leading-none">${t[1]}</span></button>`).join('');
+const TABS=[['assets/tanks.png','tab_hangar'],['assets/iconhank.png','tab_ops'],['assets/trophy.png','tab_rewards'],['gear','tab_settings']];
+function render(){$('#nav').innerHTML=TABS.map((tb,i)=>`<button onclick="S.tab=${i};UI.m=null;go()" class="py-2 ttl text-[9px] flex flex-col items-center justify-start gap-1 min-w-0 ${S.tab==i?'text-mand bg-night':'opacity-70'}"><span class="w-7 h-7 flex items-center justify-center">${tb[0]==='gear'?GEAR:`<img src="${tb[0]}" alt="" class="w-7 h-7 object-contain">`}</span><span class="leading-none">${t(tb[1])}</span></button>`).join('');
 if(S.tab>3)S.tab=0;
+document.documentElement.lang=S.lang;const ib=$('#infoBtn');if(ib){ib.setAttribute('aria-label',t('about_title'));ib.title=t('about_title')}
 $('#app').innerHTML=[vHangar,vOps,vEval,vSet][S.tab]();[,,upd3][S.tab]?.();renderModal()}
-function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Sauvegarde</h2><div class="flex gap-2"><button class="btn bev" onclick="expZip()">Exporter</button><button class="btn bev" onclick="pickFile('.zip',impZip)">Importer</button></div></section>`}
+function ioHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('backup')}</h2><div class="flex gap-2"><button class="btn bev" onclick="expZip()">${t('export')}</button><button class="btn bev" onclick="pickFile('.zip',impZip)">${t('import')}</button></div></section>`}
 function bpSetHtml(){const ms=nextReset(Date.now())-Date.now(),dd=Math.floor(ms/864e5),hh=Math.floor(ms%864e5/36e5);
-return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Battle Pass</h2>
-<p class="text-xs opacity-70">Durée fixe de 30 jours, réinitialisation à 9h (heure serveur, UTC+0). Indiquez le temps restant avant la fin du Battle Pass en cours pour synchroniser le site.</p>
-<div class="flex gap-2"><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Jours restants</span><input id="bpcD" type="number" step="1" min="0" max="30" value="${dd}" style="width:5rem" onchange="bpcSetRemaining()"></label><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>Heures restantes</span><input id="bpcH" type="number" step="1" min="0" max="23" value="${hh}" style="width:5rem" onchange="bpcSetRemaining()"></label></div></section>`}
-function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">Icônes Panneau "Mon Hangar"</h2><div class="text-xs">Icônes par ligne</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
+return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('battle_pass')}</h2>
+<p class="text-xs opacity-70">${t('bp_set_desc')}</p>
+<div class="flex gap-2"><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>${t('days_left')}</span><input id="bpcD" type="number" step="1" min="0" max="30" value="${dd}" style="width:5rem" onchange="bpcSetRemaining()"></label><label class="text-xs flex-1 flex justify-between items-center gap-2"><span>${t('hours_left')}</span><input id="bpcH" type="number" step="1" min="0" max="23" value="${hh}" style="width:5rem" onchange="bpcSetRemaining()"></label></div></section>`}
+function dispHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('icons_panel')}</h2><div class="text-xs">${t('icons_per_row')}</div><div class="grid grid-cols-5 gap-2">${[5,4,3,2,1].map(n=>`<button class="btn bev" ${S.cols===n?'style="background:#ff8a1f;color:#070e3a" ':''}aria-pressed="${S.cols===n}" onclick="setCols(${n})">${n}</button>`).join('')}</div></section>`}
 function setCols(n){S.cols=n;go()}
-function vSet(){return `<h1 class="ttl text-mand text-sm">Paramètres</h1>${dispHtml()}${bpSetHtml()}${ioHtml()}`}
+function aboutHtml(){return `<section class="card bev p-3 space-y-2 relative"><button class="absolute text-mag font-bold px-2 text-lg" style="top:6px;right:8px" onclick="closeM()" aria-label="${t('close')}">✕</button><h2 class="text-mand text-sm pr-8">${t('about_title')}</h2>
+<p class="text-xs font-bold">${t('about_copy')}</p>
+<p class="text-xs opacity-70">${t('about_desc')}</p>
+<p class="text-xs opacity-70">${t('about_ver')}</p>
+<p class="text-xs">${t('about_contact')} <a href="mailto:toolsaboom@gmail.com" class="text-mand font-bold underline">toolsaboom@gmail.com</a></p></section>`}
+function langHtml(){return `<section class="card bev p-3 space-y-2"><h2 class="text-mand text-sm">${t('language')}</h2><select onchange="setLang(this.value)" aria-label="${t('language')}">${Object.entries(LANG_META).map(([c,m])=>`<option value="${c}"${S.lang===c?' selected':''}>${m.name}</option>`).join('')}</select></section>`}
+function setLang(v){if(LANG_META.hasOwnProperty(v)){S.lang=v;go()}}
+function vSet(){return `<h1 class="ttl text-mand text-sm">${t('tab_settings')}</h1>${langHtml()}${dispHtml()}${bpSetHtml()}${ioHtml()}`}
 function download(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 function pickFile(acc,cb){const i=document.createElement('input');i.type='file';i.accept=acc;i.style.display='none';document.body.appendChild(i);i.onchange=()=>{const f=i.files[0];i.remove();if(f)cb(f)};i.click()}
-async function expZip(){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert('Export impossible : '+e.message)}}
-async function impZip(f){if(typeof JSZip==='undefined'){alert('Bibliothèque ZIP absente : vérifiez le dossier lib/ sur GitHub.');return}try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
+async function expZip(){if(typeof JSZip==='undefined'){alert(t('zip_missing'));return}try{const z=new JSZip();const chars=S.chars.map(({img,...r})=>{if(!img)return r;const f=`images/${r.id}.jpg`;z.file(f,img.split(',')[1],{base64:true});return{...r,imgFile:f}});z.file('data.json',JSON.stringify({...S,chars}));download(await z.generateAsync({type:'blob'}),'tank-a-boom-sauvegarde.zip')}catch(e){alert(t('export_fail')+e.message)}}
+async function impZip(f){if(typeof JSZip==='undefined'){alert(t('zip_missing'));return}try{const z=await JSZip.loadAsync(f);const df=z.file('data.json');if(!df)throw new Error('data.json absent');const o=JSON.parse(await df.async('string'));if(!Array.isArray(o.chars))throw new Error('format invalide');
 o.chars=await Promise.all(o.chars.map(async c=>{const{imgFile,...r}=c;if(imgFile&&z.file(imgFile)){return{...r,img:'data:image/jpeg;base64,'+await z.file(imgFile).async('base64')}}return{...r,img:r.img||null}}));
-S={...def(),...o};fixS();fixRes();fixInc();go();alert('Sauvegarde ZIP importée.')}catch(e){alert('Import impossible : '+e.message)}}
+S={...def(),...o};fixS();fixRes();fixInc();fixLang();go();alert(t('import_ok'))}catch(e){alert(t('import_fail')+e.message)}}
 render();
 /* ---- Cache des images : service worker (sw.js), nécessite HTTPS (GitHub Pages) ---- */
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
